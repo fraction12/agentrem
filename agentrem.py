@@ -619,7 +619,7 @@ def cmd_check(args):
         # Manual triggers are never auto-injected
 
         if not triggered:
-            sys.exit(1)
+            return
 
         # Sort by priority
         triggered.sort(key=lambda r: r['priority'])
