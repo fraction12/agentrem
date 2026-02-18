@@ -1230,8 +1230,8 @@ def cmd_gc(args):
         placeholders = ','.join('?' * len(ids))
         conn.execute(f"DELETE FROM reminders WHERE id IN ({placeholders})", ids)
         conn.execute(f"DELETE FROM history WHERE reminder_id IN ({placeholders})", ids)
-        conn.execute("VACUUM")
         conn.commit()
+        conn.execute("VACUUM")
 
         print(f"🗑️  Removed {len(rows)} old reminders and vacuumed database.")
     finally:
