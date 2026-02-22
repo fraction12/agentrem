@@ -1,21 +1,35 @@
 {
   "name": "agentrem",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Structured reminders CLI for AI agents with MCP server",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "agentrem": "dist/index.js"
+    "agentrem": "dist/index.js",
+    "agentrem-mcp": "dist/mcp/server.js"
   },
+  "files": [
+    "dist",
+    "llms.txt",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node dist/index.js",
-    "mcp": "node dist/mcp/server.js"
+    "mcp": "node dist/mcp/server.js",
+    "prepublishOnly": "npm run build && npm test"
   },
-  "keywords": ["reminders", "ai-agent", "cli", "mcp", "sqlite"],
+  "keywords": ["reminders", "ai-agent", "cli", "mcp", "sqlite", "llm", "agent-tools", "model-context-protocol"],
+  "author": "Dushyant Garg",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fraction12/agentrem.git"
+  },
+  "homepage": "https://github.com/fraction12/agentrem",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

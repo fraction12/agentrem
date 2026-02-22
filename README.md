@@ -1,36 +1,108 @@
-# agentrem
+# 🧠 agentrem — Reminders for AI Agents
 
-Structured reminders for AI agents. A CLI + MCP server that gives agents persistent, priority-aware memory with triggers, recurrence, dependencies, and full-text search.
+Structured reminders CLI + MCP server that gives AI agents persistent, priority-aware memory with triggers, recurrence, dependencies, and full-text search.
+
+**Why?** AI agents forget between sessions. agentrem gives them a reminder system that persists across sessions, triggers on time/keywords/conditions, and fits within token budgets.
 
 ## Install
 
 ```bash
-npm install
-npm run build
+npm install -g agentrem
+agentrem init
+```
+
+## Connect to Your AI Tool
+
+### Claude Desktop / Claude Code
+
+Add to your Claude Desktop MCP config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "agentrem": {
+      "command": "agentrem-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+Or if using `npx`:
+
+```json
+{
+  "mcpServers": {
+    "agentrem": {
+      "command": "npx",
+      "args": ["-y", "agentrem", "mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop. You'll see agentrem tools available (add, check, list, search, complete, snooze, etc.).
+
+### Cursor / Windsurf / Any MCP Client
+
+Same pattern — point your MCP config to:
+
+```bash
+agentrem-mcp
+# or
+npx agentrem mcp
+```
+
+### OpenClaw
+
+agentrem works as a CLI tool that OpenClaw agents call directly:
+
+```bash
+# Session start hook
+agentrem check --type time,session --budget 800
+
+# Keyword scanning on messages
+agentrem check --type keyword --text "user message here"
+
+# Periodic maintenance
+agentrem check --escalate && agentrem gc --days 30
+```
+
+### Any Agent with Shell Access
+
+If your agent can run shell commands, it can use agentrem directly:
+
+```bash
+agentrem add "Follow up on PR review" --due "+4h" --priority 2
+agentrem check
+agentrem complete <id>
 ```
 
 ## Quick Start
 
 ```bash
-# Initialize the database
-agentrem init
-
-# Add a time-triggered reminder
+# Time-triggered reminder
 agentrem add "Deploy v2.1 to staging" --due "+2h" --priority 2 --tags "deploy,staging"
 
-# Add a keyword-triggered reminder
+# Keyword-triggered (fires when text matches)
 agentrem add "Review security checklist" --trigger keyword --keywords "deploy,release" --match any
 
-# Add a session reminder (fires every session start)
+# Session reminder (fires every session start)
 agentrem add "Check CI pipeline status" --trigger session
 
-# Check for triggered reminders
+# Recurring weekly reminder
+agentrem add "Weekly sync prep" --due "monday 9am" --recur 1w
+
+# Check what's triggered
 agentrem check
 
-# List active reminders
+# List all active
 agentrem list
 
-# Complete a reminder
+# Full-text search
+agentrem search "deploy staging"
+
+# Complete
 agentrem complete <id>
 ```
 
@@ -38,109 +110,83 @@ agentrem complete <id>
 
 | Command | Description |
 |---------|-------------|
-| `init` | Initialize the database (`--force` to recreate with backup) |
+| `init` | Initialize database (`--force` to recreate with backup) |
 | `add <content>` | Create a reminder |
 | `check` | Check for triggered reminders |
 | `list` | List reminders with filters |
-| `search <query>` | Full-text search across content, context, tags, notes |
-| `complete <id>` | Mark a reminder as completed |
-| `snooze <id>` | Snooze a reminder (`--until` or `--for`) |
+| `search <query>` | Full-text search across all fields |
+| `complete <id>` | Mark done (auto-creates next if recurring) |
+| `snooze <id>` | Snooze (`--until` or `--for`) |
 | `edit <id>` | Edit reminder fields |
-| `delete [id]` | Soft-delete a reminder (`--permanent` for hard delete) |
+| `delete [id]` | Soft-delete (`--permanent` for hard delete) |
 | `stats` | Show statistics |
-| `gc` | Garbage collect old completed/expired/deleted reminders |
+| `gc` | Garbage collect old reminders |
 | `history [id]` | View audit trail |
-| `undo <history_id>` | Revert a specific change |
-| `export` | Export reminders to JSON |
-| `import <file>` | Import reminders from JSON |
+| `undo <history_id>` | Revert a change |
+| `export` | Export to JSON |
+| `import <file>` | Import from JSON |
 | `schema` | Show database schema |
 
 ## Trigger Types
 
-| Type | Fires when... | Required flags |
-|------|--------------|----------------|
+| Type | Fires when... | Key flags |
+|------|--------------|-----------|
 | `time` | Due datetime is reached | `--due` |
-| `keyword` | Text matches keywords | `--keywords`, optional `--match` |
-| `condition` | Shell command output matches expected | `--check`, `--expect` |
-| `session` | Every session check | (none) |
-| `heartbeat` | Every heartbeat check | (none) |
-| `manual` | Only via explicit check | (none) |
+| `keyword` | Text matches keywords | `--keywords`, `--match` |
+| `condition` | Shell command matches expected output | `--check`, `--expect` |
+| `session` | Every session check | — |
+| `heartbeat` | Every heartbeat check | — |
+| `manual` | Only via explicit check | — |
 
 ## Priority Levels
 
-| Level | Label | Behavior in `check` |
-|-------|-------|---------------------|
-| 1 | Critical | Always included |
-| 2 | High | Included within 60% budget |
-| 3 | Normal | Included within 85% budget |
-| 4 | Low | Counted but not included |
-| 5 | Someday | Skipped entirely |
+| Level | Label | Behavior |
+|-------|-------|----------|
+| 1 | 🔴 Critical | Always surfaced |
+| 2 | 🟡 High | Surfaced within 60% budget |
+| 3 | 🔵 Normal | Surfaced within 85% budget |
+| 4 | ⚪ Low | Counted but not surfaced |
+| 5 | 💤 Someday | Skipped entirely |
 
 ## Features
 
-- **Recurrence** &mdash; `--recur 1d` / `2w` / `1m` auto-creates the next instance on completion
-- **Dependencies** &mdash; `--depends-on <id>` blocks triggering until the dependency is completed
-- **Decay** &mdash; `--decay <datetime>` auto-expires reminders after a date
-- **Max fires** &mdash; `--max-fires <n>` auto-completes after N triggers
-- **Escalation** &mdash; `check --escalate` promotes overdue reminders (P3 &rarr; P2 after 48h, P2 &rarr; P1 after 24h)
-- **Token budget** &mdash; `check --budget <n>` limits output to fit context windows
-- **Full-text search** &mdash; FTS5 across content, context, tags, and notes
-- **Undo** &mdash; Revert any change via the audit history
-- **Multi-agent** &mdash; `--agent <name>` isolates reminders per agent
-- **Export/Import** &mdash; JSON backup with merge and replace modes
+- **Recurrence** — `--recur 1d/2w/1m` auto-creates next instance on completion
+- **Dependencies** — `--depends-on <id>` blocks until dependency is completed
+- **Decay** — `--decay <datetime>` auto-expires after a date
+- **Max fires** — `--max-fires <n>` auto-completes after N triggers
+- **Escalation** — `check --escalate` promotes overdue (P3→P2 after 48h, P2→P1 after 24h)
+- **Token budget** — `check --budget <n>` limits output to fit context windows
+- **Full-text search** — FTS5 across content, context, tags, notes
+- **Undo** — revert any change via audit history
+- **Multi-agent** — `--agent <name>` isolates reminders per agent
+- **Export/Import** — JSON backup with merge and replace modes
 
 ## MCP Server
 
-Run as a Model Context Protocol server for integration with AI tools:
+The MCP server exposes all functionality as tools, resources, and prompts for AI clients.
 
-```bash
-npm run mcp
-# or
-node dist/mcp/server.js
-```
+### Tools
+`add_reminder` · `check_reminders` · `list_reminders` · `search_reminders` · `complete_reminder` · `snooze_reminder` · `edit_reminder` · `delete_reminder` · `get_stats` · `get_history` · `undo_change` · `garbage_collect` · `export_reminders` · `import_reminders`
 
-### MCP Tools
+### Resources
+- `agentrem://reminders/active` — all active reminders
+- `agentrem://reminders/overdue` — overdue reminders
+- `agentrem://stats` — statistics
+- `agentrem://schema` — database schema
 
-| Tool | Description |
-|------|-------------|
-| `add_reminder` | Create a reminder |
-| `check_reminders` | Check for triggered reminders |
-| `list_reminders` | List with filters |
-| `search_reminders` | Full-text search |
-| `complete_reminder` | Complete a reminder |
-| `snooze_reminder` | Snooze until a time or for a duration |
-| `edit_reminder` | Edit fields |
-| `delete_reminder` | Delete (soft or permanent) |
-| `get_stats` | Statistics |
-| `get_history` | Audit trail |
-| `undo_change` | Revert a change |
-| `garbage_collect` | Clean up old reminders |
-| `export_reminders` | Export as JSON |
-| `import_reminders` | Import from JSON |
-
-### MCP Resources
-
-| URI | Description |
-|-----|-------------|
-| `agentrem://reminders/active` | All active reminders |
-| `agentrem://reminders/overdue` | Overdue reminders |
-| `agentrem://stats` | Reminder statistics |
-| `agentrem://schema` | Database schema |
-
-### MCP Prompts
-
-| Prompt | Description |
-|--------|-------------|
-| `triage` | Review and prioritize active reminders |
-| `guided-creation` | Interactive reminder creation |
-| `session-briefing` | Session start briefing |
+### Prompts
+- `triage` — review and prioritize active reminders
+- `guided-creation` — interactive reminder creation
+- `session-briefing` — session start briefing
 
 ## Development
 
 ```bash
-npm run dev          # Watch mode
-npm test             # Run tests
-npm run build        # Compile TypeScript
+git clone https://github.com/fraction12/agentrem.git
+cd agentrem
+npm install
+npm run build
+npm test          # 292 tests
 ```
 
 ## License
