@@ -257,6 +257,12 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
     return completedIds.has(rem.depends_on);
   }
 
+  /** Returns true if the reminder has not yet exhausted its max_fires limit. */
+  function hasFiresRemaining(rem: Reminder): boolean {
+    if (rem.max_fires == null) return true;
+    return (rem.fire_count || 0) < rem.max_fires;
+  }
+
   // Time triggers
   if (!typesFilter || typesFilter.has('time')) {
     const rows = db
@@ -266,7 +272,7 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
       )
       .all(nowIso, agent) as Reminder[];
     for (const rem of rows) {
-      if (checkDependency(rem)) {
+      if (checkDependency(rem) && hasFiresRemaining(rem)) {
         triggered.push(rem);
       }
     }
@@ -281,7 +287,7 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
       .all(agent) as Reminder[];
     const textLower = opts.text.toLowerCase();
     for (const rem of rows) {
-      if (!checkDependency(rem)) continue;
+      if (!checkDependency(rem) || !hasFiresRemaining(rem)) continue;
       const config: KeywordConfig = JSON.parse(rem.trigger_config || '{}');
       const keywords = config.keywords || [];
       const matchMode = config.match || 'any';
@@ -316,7 +322,7 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
       )
       .all(agent) as Reminder[];
     for (const rem of rows) {
-      if (!checkDependency(rem)) continue;
+      if (!checkDependency(rem) || !hasFiresRemaining(rem)) continue;
       const config: ConditionConfig = JSON.parse(rem.trigger_config || '{}');
       try {
         // Use execFileSync with shell for condition checks (user-defined commands)
@@ -342,7 +348,7 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
       )
       .all(agent) as Reminder[];
     for (const rem of rows) {
-      if (checkDependency(rem)) {
+      if (checkDependency(rem) && hasFiresRemaining(rem)) {
         triggered.push(rem);
       }
     }
@@ -356,7 +362,7 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
       )
       .all(agent) as Reminder[];
     for (const rem of rows) {
-      if (checkDependency(rem)) {
+      if (checkDependency(rem) && hasFiresRemaining(rem)) {
         triggered.push(rem);
       }
     }
@@ -427,24 +433,6 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
         'UPDATE reminders SET fire_count=?, last_fired=?, updated_at=? WHERE id=?',
       ).run(newFire, nowIso, nowIso, rem.id);
       recordHistory(db, rem.id, 'fired', null, { fire_count: newFire }, 'system');
-
-      if (rem.max_fires && newFire >= rem.max_fires) {
-        const old = { ...rem };
-        db.prepare(
-          "UPDATE reminders SET status='completed', completed_at=?, updated_at=? WHERE id=?",
-        ).run(nowIso, nowIso, rem.id);
-        const remAfter = db
-          .prepare('SELECT * FROM reminders WHERE id=?')
-          .get(rem.id) as Reminder;
-        recordHistory(
-          db,
-          rem.id,
-          'completed',
-          old as unknown as Record<string, unknown>,
-          remAfter as unknown as Record<string, unknown>,
-          'system',
-        );
-      }
     }
   }
 

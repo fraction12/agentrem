@@ -493,31 +493,50 @@ describe('coreCheck', () => {
     expect(updated.fire_count).toBe(0);
   });
 
-  it('auto-completes when max_fires reached', () => {
+  it('stays active (not completed) when max_fires is reached — explicit ack required', () => {
     const rem = coreAdd(db, { content: 'Max fires', due: pastIso(1), maxFires: 1 });
     coreCheck(db, {});
     const updated = db.prepare('SELECT * FROM reminders WHERE id=?').get(rem.id) as any;
-    expect(updated.status).toBe('completed');
-    expect(updated.completed_at).toBeTruthy();
+    // Reminder must stay active — only explicit user/agent action can complete it
+    expect(updated.status).toBe('active');
+    expect(updated.completed_at).toBeNull();
+    expect(updated.fire_count).toBe(1);
   });
 
-  it('auto-completes a time reminder after 1 fire (default max_fires=1)', () => {
+  it('keeps time reminder active after firing (default max_fires=1)', () => {
     const rem = coreAdd(db, { content: 'One-shot time', due: pastIso(1) });
     expect(rem.max_fires).toBe(1);
     coreCheck(db, {});
     const updated = db.prepare('SELECT * FROM reminders WHERE id=?').get(rem.id) as any;
-    expect(updated.status).toBe('completed');
+    // Must stay active, not auto-completed
+    expect(updated.status).toBe('active');
     expect(updated.fire_count).toBe(1);
   });
 
-  it('does not return a completed reminder in subsequent coreCheck calls', () => {
+  it('does not re-fire a reminder once max_fires is exhausted', () => {
     const rem = coreAdd(db, { content: 'Auto-done', due: pastIso(1) });
-    // First check: fires and auto-completes
+    // First check: fires the reminder
     const first = coreCheck(db, {});
     expect(first.included.some((r) => r.id === rem.id)).toBe(true);
-    // Second check: reminder is completed, should not be returned
+    // Second check: fire_count >= max_fires, so reminder is NOT returned even though still active
     const second = coreCheck(db, {});
     expect(second.included.some((r) => r.id === rem.id)).toBe(false);
+    // Reminder should still be active (awaiting acknowledgment)
+    const afterSecond = db.prepare('SELECT * FROM reminders WHERE id=?').get(rem.id) as any;
+    expect(afterSecond.status).toBe('active');
+  });
+
+  it('can be explicitly completed via coreComplete even after max_fires exhausted', () => {
+    const rem = coreAdd(db, { content: 'Explicit ack', due: pastIso(1), maxFires: 1 });
+    coreCheck(db, {});
+    // Still active after firing
+    const afterFire = db.prepare('SELECT * FROM reminders WHERE id=?').get(rem.id) as any;
+    expect(afterFire.status).toBe('active');
+    // Explicit completion works
+    coreComplete(db, rem.id);
+    const afterComplete = db.prepare('SELECT * FROM reminders WHERE id=?').get(rem.id) as any;
+    expect(afterComplete.status).toBe('completed');
+    expect(afterComplete.completed_at).toBeTruthy();
   });
 
   it('creates a fired history entry when a reminder fires', () => {
