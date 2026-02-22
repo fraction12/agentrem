@@ -1,0 +1,31 @@
+{
+  "name": "agentrem",
+  "version": "0.1.0",
+  "description": "Structured reminders CLI for AI agents with MCP server",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "agentrem": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/index.js",
+    "mcp": "node dist/mcp/server.js"
+  },
+  "keywords": ["reminders", "ai-agent", "cli", "mcp", "sqlite"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "better-sqlite3": "^11.8.2",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
+  }
+}
