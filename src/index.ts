@@ -739,6 +739,164 @@ agentrem add "<content>" --due "<when>" --priority <1-5> --tags "<tags>"
     }
   });
 
+// ── doctor ─────────────────────────────────────────────────────────────────
+
+program
+  .command('doctor')
+  .description('Self-diagnostic check')
+  .option('--json', 'Output JSON')
+  .action((opts) => {
+    const checks: { check: string; status: 'ok' | 'warn' | 'fail'; detail: string }[] = [];
+    const dbPath =
+      process.env['AGENTREM_DB'] ||
+      path.join(
+        process.env['AGENTREM_DIR'] || path.join(require('node:os').homedir(), '.agentrem'),
+        'reminders.db',
+      );
+
+    // Check 1: DB exists
+    const dbExists = fs.existsSync(dbPath);
+    checks.push({
+      check: 'Database exists',
+      status: dbExists ? 'ok' : 'fail',
+      detail: dbExists ? dbPath : `Not found at ${dbPath}. Run: agentrem init`,
+    });
+
+    if (dbExists) {
+      try {
+        const db = getDb();
+        try {
+          // Check 2: Schema valid
+          const tables = db
+            .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+            .all() as { name: string }[];
+          const tableNames = tables.map((t) => t.name);
+          const hasReminders = tableNames.includes('reminders');
+          const hasHistory = tableNames.includes('history');
+          const hasFts = tableNames.includes('reminders_fts');
+          checks.push({
+            check: 'Schema valid',
+            status: hasReminders && hasHistory && hasFts ? 'ok' : 'fail',
+            detail:
+              hasReminders && hasHistory && hasFts
+                ? `Tables: ${tableNames.join(', ')}`
+                : `Missing tables. Run: agentrem init --force`,
+          });
+
+          // Check 3: Active reminders
+          const stats = coreStats(db);
+          checks.push({
+            check: 'Active reminders',
+            status: stats.totalActive > 0 ? 'ok' : 'warn',
+            detail:
+              stats.totalActive > 0
+                ? `${stats.totalActive} active (${stats.overdue} overdue)`
+                : 'No active reminders. Add one: agentrem add "Test" --due "+1h"',
+          });
+
+          // Check 4: Overdue count
+          if (stats.overdue > 0) {
+            checks.push({
+              check: 'Overdue reminders',
+              status: 'warn',
+              detail: `${stats.overdue} overdue. Run: agentrem check --escalate`,
+            });
+          }
+
+          // Check 5: DB size
+          const dbStat = fs.statSync(dbPath);
+          const sizeMB = dbStat.size / 1024 / 1024;
+          checks.push({
+            check: 'Database size',
+            status: sizeMB < 50 ? 'ok' : 'warn',
+            detail:
+              sizeMB < 1
+                ? `${Math.round(dbStat.size / 1024)} KB`
+                : `${sizeMB.toFixed(1)} MB${sizeMB >= 50 ? '. Consider: agentrem gc' : ''}`,
+          });
+        } finally {
+          db.close();
+        }
+      } catch (e: any) {
+        checks.push({
+          check: 'Database readable',
+          status: 'fail',
+          detail: `Error: ${e.message}`,
+        });
+      }
+    }
+
+    if (opts.json) {
+      const allOk = checks.every((c) => c.status === 'ok');
+      console.log(JSON.stringify({ healthy: allOk, checks }, null, 2));
+      return;
+    }
+
+    const icons = { ok: '✅', warn: '⚠️', fail: '❌' };
+    console.log('🩺 agentrem doctor\n');
+    for (const c of checks) {
+      console.log(`${icons[c.status]} ${c.check}: ${c.detail}`);
+    }
+    const allOk = checks.every((c) => c.status === 'ok');
+    console.log(allOk ? '\n🟢 All checks passed.' : '\n🟡 Some issues found.');
+  });
+
+// ── quickstart ────────────────────────────────────────────────────────────
+
+program
+  .command('quickstart')
+  .description('Interactive first-run walkthrough')
+  .action(() => {
+    const dbPath =
+      process.env['AGENTREM_DB'] ||
+      path.join(
+        process.env['AGENTREM_DIR'] || path.join(require('node:os').homedir(), '.agentrem'),
+        'reminders.db',
+      );
+
+    // Step 1: Init if needed
+    if (!fs.existsSync(dbPath)) {
+      console.log('📦 Step 1/4: Initializing database...');
+      const msg = initDb(false);
+      console.log(`   ${msg}\n`);
+    } else {
+      console.log('📦 Step 1/4: Database already exists. ✅\n');
+    }
+
+    const db = getDb();
+    try {
+      // Step 2: Create a sample reminder
+      console.log('📝 Step 2/4: Creating a sample reminder...');
+      const rem = coreAdd(db, {
+        content: 'This is a test reminder from quickstart',
+        due: '+5m',
+        priority: 2,
+        tags: 'quickstart,test',
+        source: 'system',
+      });
+      console.log(`   Created [${rem.id.slice(0, 8)}] — due in 5 minutes\n`);
+
+      // Step 3: Check triggered
+      console.log('🔔 Step 3/4: Checking triggered reminders...');
+      const result = coreCheck(db, { budget: 800 });
+      console.log(`   Found ${result.included.length} triggered reminder(s)\n`);
+
+      // Step 4: Complete it
+      console.log('✅ Step 4/4: Completing the test reminder...');
+      coreComplete(db, rem.id);
+      console.log(`   Done! Cleaned up test reminder.\n`);
+
+      console.log('🎉 Quickstart complete! agentrem is working.\n');
+      console.log('Next steps:');
+      console.log('  agentrem add "My first real reminder" --due "+1h" --priority 2');
+      console.log('  agentrem check');
+      console.log('  agentrem setup    # Get your CLAUDE.md snippet');
+      console.log('  agentrem doctor   # Run diagnostics anytime');
+    } finally {
+      db.close();
+    }
+  });
+
 // ── Run ───────────────────────────────────────────────────────────────────
 
 function run() {

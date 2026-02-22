@@ -106,7 +106,7 @@ export function coreAdd(db: Database.Database, opts: AddOptions): Reminder {
   if (opts.dependsOn) {
     const dep = findReminder(db, opts.dependsOn);
     if (!dep) {
-      throw new AgentremError(`Reminder not found: ${opts.dependsOn}`);
+      throw new AgentremError(`Dependency not found: ${opts.dependsOn}. Run 'agentrem list' to see valid reminder IDs.`);
     }
   }
 
@@ -578,7 +578,7 @@ export function coreComplete(
 ): CompleteResult {
   const rem = findReminder(db, id);
   if (!rem) {
-    throw new AgentremError(`Reminder not found: ${id}`);
+    throw new AgentremError(`Reminder not found: ${id}. Run 'agentrem list' to see active reminders.`);
   }
 
   const nowIso = dtToIso(new Date());
@@ -654,11 +654,11 @@ export function coreSnooze(
 ): Reminder {
   const rem = findReminder(db, id);
   if (!rem) {
-    throw new AgentremError(`Reminder not found: ${id}`);
+    throw new AgentremError(`Reminder not found: ${id}. Run 'agentrem list' to see active reminders.`);
   }
 
   if (!until && !forDuration) {
-    throw new AgentremError('Snooze requires --until or --for');
+    throw new AgentremError('Snooze requires --until or --for. Example: agentrem snooze <id> --for 2h');
   }
 
   let snoozeDt: Date;
@@ -727,7 +727,7 @@ export function coreEdit(
 ): Reminder {
   const rem = findReminder(db, id);
   if (!rem) {
-    throw new AgentremError(`Reminder not found: ${id}`);
+    throw new AgentremError(`Reminder not found: ${id}. Run 'agentrem list' to see active reminders.`);
   }
 
   const oldData = { ...rem };
@@ -862,12 +862,12 @@ export function coreDelete(db: Database.Database, opts: DeleteOptions): DeleteRe
   }
 
   if (!opts.id) {
-    throw new AgentremError('Reminder ID required (or use --status for bulk delete)');
+    throw new AgentremError('Reminder ID required. Usage: agentrem delete <id> or agentrem delete --status expired for bulk delete.');
   }
 
   const rem = findReminder(db, opts.id);
   if (!rem) {
-    throw new AgentremError(`Reminder not found: ${opts.id}`);
+    throw new AgentremError(`Reminder not found: ${opts.id}. Run 'agentrem list --all' to see all reminders.`);
   }
 
   const oldData = { ...rem };
@@ -1063,7 +1063,7 @@ export function coreUndo(db: Database.Database, historyId: number): void {
     .prepare('SELECT * FROM history WHERE id = ?')
     .get(historyId) as HistoryEntry | undefined;
   if (!hist) {
-    throw new AgentremError(`History entry not found: ${historyId}`);
+    throw new AgentremError(`History entry not found: ${historyId}. Run 'agentrem history' to see valid entries.`);
   }
 
   if (hist.action === 'created') {
