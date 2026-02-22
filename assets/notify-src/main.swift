@@ -93,7 +93,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let completeAction = UNNotificationAction(
             identifier: "COMPLETE_REMINDER",
             title: "Complete ✅",
-            options: [.foreground]
+            options: []
         )
         let category = UNNotificationCategory(
             identifier: "AGENTREM_REMINDER",
