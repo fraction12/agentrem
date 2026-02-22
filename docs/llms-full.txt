@@ -980,3 +980,24 @@ Overflow counts are returned in the JSON output's `overflowCounts` field.
 Run `agentrem check --escalate` to auto-escalate overdue reminders:
 - P3 Normal overdue > 48h → promoted to P2 High
 - P2 High overdue > 24h → promoted to P1 Critical
+
+---
+
+## Security
+
+agentrem applies defense-in-depth for local data protection:
+
+| Layer | Protection |
+|-------|-----------|
+| DB directory | `0o700` (owner-only access) |
+| Export files | `0o600` (owner read/write only) |
+| Notification temp files | `0o600`, deleted after use |
+| Service plists/units | `0o600` (may contain webhook URLs) |
+| On-fire log directory | `0o700` with `0o600` log files |
+| SQL queries | Parameterized (`prepare` + `?` placeholders) |
+| FTS5 search | User input wrapped in double-quotes, `"` escaped |
+| On-fire hooks | Reminder data via env vars, never shell-interpolated |
+| Import validation | Schema checked before ingestion; malformed entries skipped |
+| DB permission check | Warns if DB file has group/world access (non-Windows) |
+
+The `--on-fire` command runs with your user's permissions. Only use trusted commands.
