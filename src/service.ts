@@ -98,6 +98,8 @@ ${programArgsXml}
 \t<dict>
 \t\t<key>HOME</key>
 \t\t<string>${escapeXml(os.homedir())}</string>
+\t\t<key>PATH</key>
+\t\t<string>${escapeXml(process.env.PATH || '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin')}</string>
 \t</dict>
 
 \t<key>ThrottleInterval</key>
