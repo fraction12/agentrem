@@ -290,8 +290,10 @@ describe('generateLaunchdPlist', () => {
 
   it('includes log file paths', () => {
     const plist = generateLaunchdPlist({ logDir: '/tmp/testlogs' });
-    expect(plist).toContain('/tmp/testlogs/watch.log');
-    expect(plist).toContain('/tmp/testlogs/watch.error.log');
+    // Normalize path separators for cross-platform (Windows uses backslashes)
+    const normalized = plist.replace(/\\/g, '/');
+    expect(normalized).toContain('/tmp/testlogs/watch.log');
+    expect(normalized).toContain('/tmp/testlogs/watch.error.log');
   });
 
   it('escapes special XML characters in paths', () => {
