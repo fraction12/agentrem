@@ -17,20 +17,26 @@ vi.mock('node:child_process', () => {
   };
 });
 
-// ── Mock node:fs so icon check always returns false in tests ───────────────
-vi.mock('node:fs', () => ({ existsSync: vi.fn(() => false) }));
+// ── Mock node:fs so icon/app checks return false by default in tests ──────
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn(() => false),
+  writeFileSync: vi.fn(),
+  unlinkSync: vi.fn(),
+}));
 
 import {
   buildNotifyOpts,
   formatOverdue,
   detectNotifier,
   _resetNotifierCache,
+  _syncSleep,
   sendNotification,
   type NotifyOpts,
   type NotifierBackend,
 } from '../src/notifier.js';
 
 import { execFileSync, execFile } from 'node:child_process';
+import { existsSync, writeFileSync, unlinkSync } from 'node:fs';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -385,5 +391,155 @@ describe('sendNotification', () => {
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Quick reminder'));
     consoleSpy.mockRestore();
     Object.defineProperty(process, 'platform', { value: 'darwin' });
+  });
+});
+
+// ── agentrem-app backend ──────────────────────────────────────────────────
+// Tests for the new 'agentrem-app' backend: detection and JSON temp-file flow.
+// existsSync is mocked true so resolveAgentremApp() returns a path.
+// _syncSleep is the 500ms delivery wait — it runs for real but is lightweight.
+
+describe('agentrem-app backend — detectNotifier', () => {
+  const originalPlatform = process.platform;
+
+  beforeEach(() => {
+    _resetNotifierCache();
+    vi.clearAllMocks();
+    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    // Simulate app bundle present
+    vi.mocked(existsSync).mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    _resetNotifierCache();
+    vi.resetAllMocks();
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+  });
+
+  it('returns "agentrem-app" on macOS when the bundle exists', () => {
+    expect(detectNotifier()).toBe('agentrem-app');
+  });
+
+  it('does NOT call which/terminal-notifier when app bundle is present', () => {
+    detectNotifier();
+    const whichCalls = vi.mocked(execFileSync).mock.calls.filter((c) => c[0] === 'which');
+    expect(whichCalls).toHaveLength(0);
+  });
+
+  it('falls back to "terminal-notifier" when app bundle is absent on macOS', () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+    vi.mocked(execFileSync).mockReturnValueOnce('/usr/local/bin/terminal-notifier\n' as any);
+    expect(detectNotifier()).toBe('terminal-notifier');
+  });
+
+  it('does NOT check for app bundle on non-macOS', () => {
+    Object.defineProperty(process, 'platform', { value: 'linux' });
+    vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error('not found'); });
+    const result = detectNotifier();
+    expect(result).toBe('console');
+    // existsSync should not have been called (non-darwin skips app check)
+    expect(vi.mocked(existsSync)).not.toHaveBeenCalled();
+  });
+
+  it('"agentrem-app" result is cached like other backends', () => {
+    detectNotifier();
+    detectNotifier();
+    detectNotifier();
+    // existsSync called once during first detection, cached after
+    expect(vi.mocked(existsSync)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('agentrem-app backend — sendNotification', () => {
+  const originalPlatform = process.platform;
+
+  beforeEach(() => {
+    _resetNotifierCache();
+    vi.clearAllMocks();
+    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    // App bundle present; open succeeds
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(execFileSync).mockReturnValue('' as any);
+  });
+
+  afterEach(() => {
+    _resetNotifierCache();
+    vi.resetAllMocks();
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+  });
+
+  it('writes a JSON temp file to /tmp with notification payload', () => {
+    const opts: NotifyOpts = {
+      title: '⚡ Yo.',
+      subtitle: 'just now',
+      message: 'Ship it',
+      sound: 'Hero',
+    };
+    sendNotification(opts);
+
+    expect(vi.mocked(writeFileSync)).toHaveBeenCalledOnce();
+    const [tmpPath, rawContent] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
+
+    expect(tmpPath).toMatch(/^\/tmp\/agentrem-notify-[a-z0-9]+\.json$/);
+
+    const parsed = JSON.parse(rawContent as string);
+    expect(parsed).toEqual({
+      title: '⚡ Yo.',
+      subtitle: 'just now',
+      message: 'Ship it',
+      sound: 'Hero',
+    });
+  });
+
+  it('calls open -a <Agentrem.app> --args <tmpPath>', () => {
+    const opts: NotifyOpts = { title: 'T', subtitle: 'S', message: 'M' };
+    sendNotification(opts);
+
+    const [tmpPath] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
+    expect(vi.mocked(execFileSync)).toHaveBeenCalledWith(
+      'open',
+      ['-a', expect.stringContaining('Agentrem.app'), '--args', tmpPath],
+      { stdio: 'pipe' },
+    );
+  });
+
+  it('deletes the temp file after open returns', () => {
+    sendNotification({ title: 'T', subtitle: 'S', message: 'M' });
+
+    const [tmpPath] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
+    expect(vi.mocked(unlinkSync)).toHaveBeenCalledWith(tmpPath);
+  });
+
+  it('temp file omits sound key when sound is undefined', () => {
+    sendNotification({ title: 'P4', subtitle: 'due now ⏰', message: 'Low priority task' });
+
+    const [, rawContent] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
+    const parsed = JSON.parse(rawContent as string);
+    expect(parsed.sound).toBeUndefined();
+  });
+
+  it('still cleans up temp file even when open throws', () => {
+    // First execFileSync call is `open` — make it throw
+    vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error('open failed'); });
+    // Second would be `osascript` fallback — also throw so we reach console
+    vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error('osascript failed'); });
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    sendNotification({ title: 'T', subtitle: 'S', message: 'Cleanup test' });
+    consoleSpy.mockRestore();
+
+    const [tmpPath] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
+    expect(vi.mocked(unlinkSync)).toHaveBeenCalledWith(tmpPath);
+  });
+
+  it('falls back to osascript when open fails', () => {
+    vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error('open failed'); });
+    // Let osascript succeed
+    vi.mocked(execFileSync).mockReturnValueOnce('' as any);
+
+    sendNotification({ title: 'Fallback', subtitle: 'test', message: 'osascript fallback' });
+
+    const osaCalls = vi.mocked(execFileSync).mock.calls.filter((c) => c[0] === 'osascript');
+    expect(osaCalls.length).toBeGreaterThan(0);
   });
 });

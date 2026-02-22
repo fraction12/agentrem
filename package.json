@@ -13,10 +13,12 @@
     "llms.txt",
     "llms-full.txt",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "assets"
   ],
   "scripts": {
     "build": "tsc",
+    "build:notify": "bash scripts/build-notify.sh",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",

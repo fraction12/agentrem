@@ -1,9 +1,9 @@
 // ── Native Notification Backend ─────────────────────────────────────────────
-// Dispatches notifications via terminal-notifier → osascript → console.log.
+// Dispatches notifications via agentrem-app → terminal-notifier → osascript → console.log.
 // No external npm dependencies — uses only macOS-native tools.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { truncate } from './date-parser.js';
@@ -19,15 +19,29 @@ export interface NotifyOpts {
   group?: string;
 }
 
-export type NotifierBackend = 'terminal-notifier' | 'osascript' | 'console';
+export type NotifierBackend = 'agentrem-app' | 'terminal-notifier' | 'osascript' | 'console';
 
 // ── Detection ───────────────────────────────────────────────────────────────
 
 let cachedBackend: NotifierBackend | undefined;
 
+/** Reset the cached backend (for testing). */
+export function _resetNotifierCache(): void {
+  cachedBackend = undefined;
+}
+
 /** Detect the best available notification backend. Result is cached. */
 export function detectNotifier(): NotifierBackend {
   if (cachedBackend !== undefined) return cachedBackend;
+
+  // Prefer the bundled Agentrem.app on macOS (shows proper icon, no dependency)
+  if (process.platform === 'darwin') {
+    const appPath = resolveAgentremApp();
+    if (appPath) {
+      cachedBackend = 'agentrem-app';
+      return cachedBackend;
+    }
+  }
 
   try {
     execFileSync('which', ['terminal-notifier'], { stdio: 'pipe' });
@@ -44,11 +58,6 @@ export function detectNotifier(): NotifierBackend {
 
   cachedBackend = 'console';
   return cachedBackend;
-}
-
-/** Reset the cached backend (for testing). */
-export function _resetNotifierCache(): void {
-  cachedBackend = undefined;
 }
 
 // ── Option builder (pure, fully testable) ───────────────────────────────────
@@ -102,7 +111,18 @@ export function buildNotifyOpts(rem: Reminder, now: number = Date.now()): Notify
   return { title, subtitle, message, sound, group: 'com.agentrem.watch' };
 }
 
-// ── App icon path ────────────────────────────────────────────────────────────
+// ── Path helpers ─────────────────────────────────────────────────────────────
+
+/** Resolve the bundled .app bundle path. Returns undefined if it doesn't exist. */
+function resolveAgentremApp(): string | undefined {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const appPath = resolve(__dirname, '../assets/Agentrem.app');
+    return existsSync(appPath) ? appPath : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Resolve the bundled app icon path. Returns undefined if the file doesn't exist. */
 function resolveAppIcon(): string | undefined {
@@ -122,6 +142,9 @@ export function sendNotification(opts: NotifyOpts): void {
   const backend = detectNotifier();
 
   switch (backend) {
+    case 'agentrem-app':
+      sendViaAgentremApp(opts);
+      break;
     case 'terminal-notifier':
       sendViaTerminalNotifier(opts);
       break;
@@ -131,6 +154,43 @@ export function sendNotification(opts: NotifyOpts): void {
     case 'console':
       sendViaConsole(opts);
       break;
+  }
+}
+
+/** Synchronous sleep — exported so tests can spy/mock it to a no-op. */
+export function _syncSleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function sendViaAgentremApp(opts: NotifyOpts): void {
+  const appPath = resolveAgentremApp();
+  if (!appPath) {
+    // App was removed since detection — fall back
+    sendViaTerminalNotifier(opts);
+    return;
+  }
+
+  const rand = Math.random().toString(36).slice(2);
+  const tmpPath = `/tmp/agentrem-notify-${rand}.json`;
+
+  const payload = JSON.stringify({
+    title: opts.title,
+    subtitle: opts.subtitle,
+    message: opts.message,
+    sound: opts.sound,
+  });
+
+  writeFileSync(tmpPath, payload, 'utf8');
+
+  try {
+    execFileSync('open', ['-a', appPath, '--args', tmpPath], { stdio: 'pipe' });
+    // Give the app ~500ms to read the file before we delete it
+    _syncSleep(500);
+  } catch {
+    // open failed — fall back
+    sendViaOsascript(opts);
+  } finally {
+    try { unlinkSync(tmpPath); } catch { /* ignore */ }
   }
 }
 
