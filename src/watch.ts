@@ -2,6 +2,10 @@
 // Polls coreCheck() on an interval and fires native OS notifications for
 // due reminders, with per-reminder dedup (5-minute cooldown).
 
+import { execSync } from 'node:child_process';
+import { mkdirSync, appendFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { getDb } from './db.js';
 import { coreCheck } from './core.js';
 import { truncate } from './date-parser.js';
@@ -26,6 +30,10 @@ export interface WatchOptions {
    * Useful for testing — pass a no-op or spy to avoid spawning OS notifiers.
    */
   onNotify?: (rem: Reminder) => void;
+  /** Shell command to execute when a reminder fires. Reminder data passed via env vars. */
+  onFire?: string;
+  /** Timeout for on-fire command in milliseconds (default 5000) */
+  onFireTimeout?: number;
 }
 
 export interface WatchState {
@@ -51,6 +59,42 @@ export function fireNotification(rem: Reminder): void {
   sendNotification(opts);
 }
 
+const ON_FIRE_LOG_DIR = join(homedir(), '.agentrem', 'logs');
+const ON_FIRE_LOG_FILE = join(ON_FIRE_LOG_DIR, 'on-fire.log');
+
+/** Execute the on-fire command for a fired reminder. Fire-and-forget: never throws. */
+export function executeOnFire(command: string, rem: Reminder, timeoutMs: number = 5000): boolean {
+  const env: Record<string, string> = {
+    ...process.env as Record<string, string>,
+    AGENTREM_ID: rem.id,
+    AGENTREM_CONTENT: rem.content,
+    AGENTREM_PRIORITY: String(rem.priority ?? 3),
+    AGENTREM_TAGS: rem.tags ?? '',
+    AGENTREM_CONTEXT: rem.context ?? '',
+    AGENTREM_DUE: rem.trigger_at ?? '',
+    AGENTREM_FIRE_COUNT: String(rem.fire_count ?? 1),
+  };
+
+  try {
+    execSync(command, {
+      env,
+      timeout: timeoutMs,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return true;
+  } catch (err: unknown) {
+    try {
+      mkdirSync(ON_FIRE_LOG_DIR, { recursive: true });
+      const msg = err instanceof Error ? err.message : String(err);
+      const line = `${new Date().toISOString()} | ${rem.id.slice(0, 8)} | ${msg}\n`;
+      appendFileSync(ON_FIRE_LOG_FILE, line);
+    } catch {
+      // If even logging fails, silently continue
+    }
+    return false;
+  }
+}
+
 /** Run a single check cycle: poll DB, notify due reminders, return notified list. */
 export function runCheckCycle(
   state: WatchState,
@@ -70,6 +114,13 @@ export function runCheckCycle(
     for (const rem of result.included) {
       if (shouldNotify(state, rem.id, now)) {
         notify(rem);
+        // Execute on-fire hook sequentially after notification
+        if (opts.onFire) {
+          const ok = executeOnFire(opts.onFire, rem, opts.onFireTimeout ?? 5000);
+          if (opts.verbose) {
+            console.log(`[agentrem watch] 🔥 [${rem.id.slice(0, 8)}] on-fire ${ok ? 'ok' : 'failed'}`);
+          }
+        }
         markNotified(state, rem.id, now);
         notified.push(rem);
         if (opts.verbose) {

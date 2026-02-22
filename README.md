@@ -97,7 +97,7 @@ Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `c
 | `gc` | `--older-than` `--dry-run` | `agentrem gc --older-than 30` |
 | `export` | `--out` `--status` | `agentrem export --out backup.json` |
 | `import <file>` | `--merge` `--replace` `--dry-run` | `agentrem import backup.json --merge` |
-| `watch` | `--interval` `--once` `--verbose` `--install` `--uninstall` `--status` `--agent` | `agentrem watch --install` |
+| `watch` | `--interval` `--once` `--verbose` `--on-fire` `--on-fire-timeout` `--install` `--uninstall` `--status` `--agent` | `agentrem watch --on-fire "curl ..."` |
 | `setup` | `--mcp` | `agentrem setup` / `agentrem setup --mcp` |
 | `doctor` | `--json` | `agentrem doctor` |
 | `init` | `--force` | `agentrem init` |
@@ -180,6 +180,35 @@ if agentrem check --watch --timeout 120 --json > /tmp/due.json; then
   cat /tmp/due.json
   agentrem check   # mark as fired
 fi
+```
+
+## watch --on-fire: Hooks
+
+Execute a shell command whenever a reminder fires:
+
+```bash
+agentrem watch --on-fire "curl -X POST https://hooks.example.com/reminder"
+```
+
+Reminder data is passed as environment variables (no shell injection — data never interpolated into the command):
+
+| Variable | Description |
+|----------|-------------|
+| `AGENTREM_ID` | Reminder ID |
+| `AGENTREM_CONTENT` | Reminder text |
+| `AGENTREM_PRIORITY` | Priority (1-5) |
+| `AGENTREM_TAGS` | Comma-separated tags |
+| `AGENTREM_CONTEXT` | Context string |
+| `AGENTREM_DUE` | Due datetime |
+| `AGENTREM_FIRE_COUNT` | Number of times fired |
+
+- **Fire-and-forget** — failures are logged to `~/.agentrem/logs/on-fire.log`, never crash the watcher
+- **Sequential** — multiple reminders process one at a time
+- **Timeout:** 5 seconds default, configurable with `--on-fire-timeout <ms>`
+
+**Example: Forward to OpenClaw (Telegram delivery):**
+```bash
+agentrem watch --on-fire 'openclaw cron add --at +0s --message "🔔 Reminder: $AGENTREM_CONTENT" --delete-after-run --best-effort-deliver'
 ```
 
 ---

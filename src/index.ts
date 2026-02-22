@@ -939,6 +939,8 @@ program
   .option('--agent, -a <name>', 'Agent name to check for')
   .option('--once', 'Run a single check and exit')
   .option('--verbose', 'Verbose output')
+  .option('--on-fire <command>', 'Shell command to run when a reminder fires (data via env vars)')
+  .option('--on-fire-timeout <ms>', 'Timeout for on-fire command in ms (default 5000)', parseInt)
   .option('--install', 'Install as a background OS service (launchd / systemd)')
   .option('--uninstall', 'Remove the background OS service')
   .option('--status', 'Show service status')
@@ -989,6 +991,8 @@ program
         agent: opts.agent || opts.A,
         once: opts.once,
         verbose: opts.verbose,
+        onFire: opts.onFire,
+        onFireTimeout: opts.onFireTimeout,
       });
     } catch (e: any) {
       console.error(`[agentrem watch] error: ${e.message}`);
