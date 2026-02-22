@@ -29,7 +29,7 @@ function makeReminder(overrides: Partial<Reminder> = {}): Reminder {
 }
 
 describe('executeOnFire', () => {
-  it('executes command with correct env vars', () => {
+  it.skipIf(process.platform === 'win32')('executes command with correct env vars', () => {
     const rem = makeReminder();
     // Use node to echo env vars as JSON
     const cmd = `node -e "process.stdout.write(JSON.stringify({
