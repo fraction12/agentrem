@@ -1,0 +1,121 @@
+# agentrem
+
+> You lose context between sessions. agentrem fixes that.
+
+You're an AI agent. Every time your session ends, you forget everything — reminders, follow-ups, things your human asked you to track. agentrem gives you persistent memory that survives across sessions.
+
+## Quick Integration (3 commands)
+
+```bash
+# 1. Install (one time)
+npm install -g agentrem && agentrem init
+
+# 2. On session start — check what's due
+agentrem check --type time,session --budget 800
+
+# 3. When your human says "remind me" — save it
+agentrem add "Deploy to prod" --due "+2h" --priority 2
+```
+
+Add `agentrem setup` output to your CLAUDE.md for automatic integration.
+
+## What You Can Do
+
+```bash
+agentrem add <content>          # Create a reminder (--due, --priority, --tags, --trigger)
+agentrem check                  # See what's triggered/due (--json for structured output)
+agentrem list                   # List all active (--json for structured output)
+agentrem search <query>         # Full-text search across all fields
+agentrem complete <id>          # Mark done (auto-creates next if recurring)
+agentrem snooze <id> --for 2h   # Snooze by duration or --until datetime
+agentrem edit <id>              # Modify fields
+agentrem stats                  # Overview (--json for structured output)
+agentrem watch                  # Background daemon: poll + fire OS notifications
+agentrem doctor                 # Self-diagnostic check
+agentrem quickstart             # Interactive first-run walkthrough
+agentrem setup                  # Print CLAUDE.md snippet (--mcp for MCP config)
+```
+
+## Trigger Types
+
+| Type | Use when... | Example |
+|------|------------|---------|
+| `time` | Something is due at a specific time | `--due "+2h"` |
+| `keyword` | You should react when certain words appear | `--trigger keyword --keywords "deploy,release"` |
+| `session` | You need to check every session start | `--trigger session` |
+| `heartbeat` | You need to check every heartbeat | `--trigger heartbeat` |
+| `condition` | A shell command should be monitored | `--trigger condition --check "git status" --expect "clean"` |
+
+## Priority Levels
+
+1=Critical (always surfaced), 2=High, 3=Normal, 4=Low (counted not shown), 5=Someday (skipped)
+
+## Natural Language Dates
+
+`--due` accepts many formats:
+
+```bash
+--due "now"          # Immediately
+--due "today"        # Today at 23:59
+--due "tomorrow"     # Tomorrow at 09:00
+--due "in 5 minutes"
+--due "in 2 hours"
+--due "in 3 days"
+--due "in 1 week"
+--due "+5m"          # 5 minutes from now
+--due "+2h"          # 2 hours from now
+--due "+3d"          # 3 days from now
+--due "+1w"          # 1 week from now
+--due "2026-02-22T09:00:00"
+--due "2026-02-22"
+```
+
+## Agent Integration Patterns
+
+```bash
+# Session start: check time + session triggers, fit in 800 tokens
+agentrem check --type time,session --budget 800
+
+# Message scanning: check if user message matches keyword triggers
+agentrem check --type keyword --text "the user's message here"
+
+# Periodic maintenance: escalate overdue, clean up old
+agentrem check --escalate && agentrem gc --days 30
+
+# Structured output for programmatic use
+agentrem check --json
+agentrem list --json
+agentrem stats --json
+```
+
+## Background Watcher (watch)
+
+`agentrem watch` runs a daemon that polls for due reminders and fires native OS notifications.
+
+```bash
+agentrem watch                           # Start daemon (Ctrl+C to stop)
+agentrem watch --interval 60             # Poll every 60s (default: 30s)
+agentrem watch --agent jarvis            # Check for specific agent
+agentrem watch --once                    # Single check, then exit
+agentrem watch --verbose                 # Show poll log
+
+# Service management (auto-start on boot)
+agentrem watch --install                 # Install as launchd/systemd service
+agentrem watch --uninstall               # Remove service
+agentrem watch --status                  # Show service status
+```
+
+## Key Features
+
+- **Recurrence**: `--recur 1d|2w|1m` — auto-creates next on completion
+- **Dependencies**: `--depends-on <id>` — blocks until dependency done
+- **Escalation**: overdue P3→P2 after 48h, P2→P1 after 24h
+- **Token budget**: `--budget <n>` limits output to fit your context window
+- **Multi-agent**: `--agent <name>` isolates per agent
+- **Full-text search**: FTS5 across content, context, tags, notes
+- **JSON output**: `--json` on check, list, search, stats, history
+- **Native notifications**: macOS Agentrem.app with bell icon + priority sounds
+- **MCP server**: `agentrem-mcp` for Claude Desktop / MCP clients
+- **Zero config**: SQLite database, no external services
+
+See `llms-full.txt` for complete API reference with all flags and JSON examples.
