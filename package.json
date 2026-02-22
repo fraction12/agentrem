@@ -60,8 +60,10 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@types/node-notifier": "^8.0.5",
     "better-sqlite3": "^11.8.2",
-    "commander": "^13.1.0"
+    "commander": "^13.1.0",
+    "node-notifier": "^10.0.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

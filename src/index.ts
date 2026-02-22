@@ -8,6 +8,8 @@ import * as path from 'node:path';
 import { VERSION, PRIORITY_LABELS, AgentremError } from './types.js';
 import { initDb, getDb } from './db.js';
 import { fmtDt, truncate, dtToIso } from './date-parser.js';
+import { startWatch } from './watch.js';
+import { installService, uninstallService, getServiceStatus } from './service.js';
 import {
   coreAdd,
   coreCheck,
@@ -895,6 +897,72 @@ program
       console.log('  agentrem doctor   # Run diagnostics anytime');
     } finally {
       db.close();
+    }
+  });
+
+// ── watch ─────────────────────────────────────────────────────────────────
+
+program
+  .command('watch')
+  .description('Background watcher: poll for due reminders and fire OS notifications')
+  .option('--interval <seconds>', 'Poll interval in seconds (default 30)', parseInt)
+  .option('--agent, -a <name>', 'Agent name to check for')
+  .option('--once', 'Run a single check and exit')
+  .option('--verbose', 'Verbose output')
+  .option('--install', 'Install as a background OS service (launchd / systemd)')
+  .option('--uninstall', 'Remove the background OS service')
+  .option('--status', 'Show service status')
+  .action(async (opts) => {
+    // ── service management sub-commands ──────────────────────────────────
+    if (opts.install) {
+      const result = installService({
+        interval: opts.interval,
+        agent: opts.agent || opts.A,
+        verbose: opts.verbose,
+      });
+      if (result.success) {
+        console.log(`✅ ${result.message}`);
+      } else {
+        console.error(`❌ ${result.message}`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (opts.uninstall) {
+      const result = uninstallService();
+      if (result.success) {
+        console.log(`✅ ${result.message}`);
+      } else {
+        console.error(`❌ ${result.message}`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (opts.status) {
+      const s = getServiceStatus();
+      const installedIcon = s.installed ? '✅' : '❌';
+      const runningIcon = s.running ? '🟢' : '🔴';
+      console.log(`${installedIcon} Installed: ${s.installed}`);
+      console.log(`${runningIcon} Running:   ${s.running}`);
+      console.log(`   Platform: ${s.platform}`);
+      if (s.filePath) console.log(`   File:     ${s.filePath}`);
+      console.log(`   Detail:   ${s.detail}`);
+      return;
+    }
+
+    // ── watch loop ────────────────────────────────────────────────────────
+    try {
+      await startWatch({
+        interval: opts.interval,
+        agent: opts.agent || opts.A,
+        once: opts.once,
+        verbose: opts.verbose,
+      });
+    } catch (e: any) {
+      console.error(`[agentrem watch] error: ${e.message}`);
+      process.exit(1);
     }
   });
 
