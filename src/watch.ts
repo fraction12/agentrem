@@ -2,12 +2,10 @@
 // Polls coreCheck() on an interval and fires native OS notifications for
 // due reminders, with per-reminder dedup (5-minute cooldown).
 
-import notifier from 'node-notifier';
-import * as path from 'node:path';
-import * as os from 'node:os';
 import { getDb } from './db.js';
 import { coreCheck } from './core.js';
 import { truncate } from './date-parser.js';
+import { sendNotification } from './notify.js';
 import type { Reminder } from './types.js';
 
 export const DEDUP_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -65,10 +63,7 @@ export function buildNotificationMessage(rem: Reminder): string {
 
 /** Send a native OS notification for a single reminder. */
 export function fireNotification(rem: Reminder): void {
-  notifier.notify({
-    title: buildNotificationTitle(rem),
-    message: buildNotificationMessage(rem),
-  });
+  sendNotification(rem);
 }
 
 /** Run a single check cycle: poll DB, notify due reminders, return notified list. */

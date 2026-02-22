@@ -360,6 +360,42 @@ export function getServiceStatus(): ServiceStatus {
   };
 }
 
+// ── Post-install check ─────────────────────────────────────────────────────
+
+export interface PostInstallCheckResult {
+  terminalNotifierFound: boolean;
+  warnings: string[];
+}
+
+/**
+ * Check that optional native dependencies are available and warn if not.
+ * Currently checks for `terminal-notifier` (macOS desktop notifications).
+ */
+export function postInstallCheck(): PostInstallCheckResult {
+  const warnings: string[] = [];
+  let terminalNotifierFound = false;
+
+  if (os.platform() === 'darwin') {
+    try {
+      execFileSync('which', ['terminal-notifier'], { stdio: 'pipe' });
+      terminalNotifierFound = true;
+    } catch {
+      warnings.push(
+        '⚠️  terminal-notifier not found. Rich macOS notifications will use osascript fallback.\n' +
+          '   Install it with: brew install terminal-notifier',
+      );
+    }
+  }
+
+  if (warnings.length > 0) {
+    for (const w of warnings) {
+      console.warn(w);
+    }
+  }
+
+  return { terminalNotifierFound, warnings };
+}
+
 // ── XML helpers ────────────────────────────────────────────────────────────
 
 export function escapeXml(s: string): string {
