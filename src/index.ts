@@ -477,6 +477,7 @@ program
   .description('Delete a reminder')
   .argument('[id]', 'Reminder ID')
   .option('--permanent', 'Permanently delete')
+  .option('-y, --yes', 'Skip confirmation (default: no prompt)')
   .option('--status <status>', 'Bulk delete by status')
   .option('--older-than <days>', 'Delete older than N days')
   .action((id, opts) => {
