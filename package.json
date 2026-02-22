@@ -1,6 +1,6 @@
 {
   "name": "agentrem",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Structured reminders CLI for AI agents with MCP server",
   "type": "module",
   "main": "dist/index.js",
@@ -55,6 +55,9 @@
   },
   "homepage": "https://github.com/fraction12/agentrem",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "better-sqlite3": "^11.8.2",
