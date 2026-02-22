@@ -13,9 +13,52 @@ agentrem init
 
 ## Connect to Your AI Tool
 
-### Claude Desktop / Claude Code
+### Claude Code (Recommended)
 
-Add to your Claude Desktop MCP config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Claude Code has shell access, so it works out of the box — no MCP config needed.
+
+**1. Install globally:**
+
+```bash
+npm install -g agentrem
+agentrem init
+```
+
+**2. Add to your `CLAUDE.md`:**
+
+```markdown
+## Reminders
+You have access to `agentrem` CLI for persistent reminders across sessions.
+
+### On every session start, run:
+agentrem check --type time,session --budget 800
+
+### When the user says "remind me", "don't forget", "follow up", or "next time":
+agentrem add "<content>" --due "<when>" --priority <1-5> --tags "<tags>"
+
+### Key commands:
+- `agentrem add` — create a reminder
+- `agentrem check` — see what's triggered/due
+- `agentrem list` — list all active reminders
+- `agentrem search <query>` — full-text search
+- `agentrem complete <id>` — mark done
+- `agentrem snooze <id> --for 2h` — snooze
+- `agentrem --help` — full reference
+```
+
+**3. That's it.** Next time you tell Claude Code "remind me to deploy tomorrow at 9am", it runs:
+
+```bash
+agentrem add "Deploy to production" --due "tomorrow 9am" --priority 2
+```
+
+Next session, `agentrem check` surfaces it automatically.
+
+### Claude Desktop (MCP)
+
+For Claude Desktop (the chat app), use the MCP server:
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -28,7 +71,7 @@ Add to your Claude Desktop MCP config (`~/Library/Application Support/Claude/cla
 }
 ```
 
-Or if using `npx`:
+Or without global install:
 
 ```json
 {
@@ -45,13 +88,7 @@ Restart Claude Desktop. You'll see agentrem tools available (add, check, list, s
 
 ### Cursor / Windsurf / Any MCP Client
 
-Same pattern — point your MCP config to:
-
-```bash
-agentrem-mcp
-# or
-npx agentrem mcp
-```
+Same MCP pattern — point your config to `agentrem-mcp` or `npx agentrem mcp`.
 
 ### OpenClaw
 
