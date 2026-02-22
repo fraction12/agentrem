@@ -206,7 +206,7 @@
       <a href="#features">Features</a>
       <a href="#agents">For Agents</a>
       <a href="#integrations">Works With</a>
-      <a href="https://github.com/dushyant4665/agentrem" target="_blank">GitHub ↗</a>
+      <a href="https://github.com/fraction12/agentrem" target="_blank">GitHub ↗</a>
     </div>
   </div>
 </nav>
@@ -219,7 +219,7 @@
     <p class="hero-tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
     <div class="badges">
       <span class="badge"><span class="dot dot-amber"></span><span id="version-badge">v…</span></span>
-      <span class="badge"><span class="dot dot-green"></span><span id="test-counter">465+</span> tests passing</span>
+      <span class="badge"><span class="dot dot-green"></span><span id="test-counter">450+</span> tests passing</span>
       <span class="badge"><span class="dot dot-blue"></span>MIT License</span>
       <span class="badge"><span class="dot dot-purple"></span>MCP Compatible</span>
     </div>
@@ -228,7 +228,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
         npm install -g agentrem
       </button>
-      <a class="btn btn-outline" href="https://github.com/dushyant4665/agentrem" target="_blank">GitHub →</a>
+      <a class="btn btn-outline" href="https://github.com/fraction12/agentrem" target="_blank">GitHub →</a>
     </div>
   </section>
 </div>
@@ -483,7 +483,7 @@ You have access to `agentrem` for persistent reminders across sessions.
 <!-- FOOTER -->
 <footer>
   <div class="container">
-    <p>MIT License · Built for the agent economy · <a href="https://github.com/dushyant4665/agentrem" target="_blank">GitHub ↗</a></p>
+    <p>MIT License · Built for the agent economy · <a href="https://github.com/fraction12/agentrem" target="_blank">GitHub ↗</a></p>
     <p style="margin-top:0.35rem;font-size:0.78rem;">Made with ☕ by <a href="https://openclaw.ai" target="_blank">OpenClaw</a></p>
   </div>
 </footer>
@@ -564,6 +564,7 @@ You have access to `agentrem` for persistent reminders across sessions.
     })
     .catch(function() {});
 
+
   /* ── SCROLL REVEAL ── */
   var revealEls = document.querySelectorAll(
     'h2.section-title, .feature-card, .code-wrapper, .agents-block, .dates-list, .doc-card, .pills-marquee, .section-label, .section-sub'
@@ -605,12 +606,12 @@ You have access to `agentrem` for persistent reminders across sessions.
     if (!prefersReduced && 'IntersectionObserver' in window) {
       var cntObs = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
-          if (entry.isIntersecting) { animateCounter(counterEl, 465, 1500); cntObs.unobserve(entry.target); }
+          if (entry.isIntersecting) { animateCounter(counterEl, 450, 1500); cntObs.unobserve(entry.target); }
         });
       }, { threshold: 0.5 });
       cntObs.observe(counterEl.closest('.badge') || counterEl);
     } else {
-      animateCounter(counterEl, 444, 1500);
+      animateCounter(counterEl, 450, 1500);
     }
   }
 
