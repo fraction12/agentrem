@@ -31,7 +31,7 @@ export function initDb(force: boolean = false, dbPath?: string): string {
   const dir = process.env['AGENTREM_DIR'] || path.join(os.homedir(), '.agentrem');
   const p = dbPath || getDefaultDbPath();
 
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 
   if (fs.existsSync(p)) {
     if (force) {

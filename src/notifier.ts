@@ -182,7 +182,7 @@ function sendViaAgentremApp(opts: NotifyOpts): void {
     reminderId: opts.reminderId,
   });
 
-  writeFileSync(tmpPath, payload, 'utf8');
+  writeFileSync(tmpPath, payload, { encoding: 'utf8', mode: 0o600 });
 
   try {
     execFileSync('open', ['-a', appPath, '--args', tmpPath], { stdio: 'pipe' });
