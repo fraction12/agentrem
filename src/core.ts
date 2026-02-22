@@ -36,7 +36,7 @@ export interface AddOptions {
   check?: string;
   expect?: string;
   decay?: string;
-  maxFires?: number;
+  maxFires?: number | null;
   recur?: string;
   agent?: string;
   dependsOn?: string;
@@ -132,7 +132,7 @@ export function coreAdd(db: Database.Database, opts: AddOptions): Reminder {
       escalation: null,
       fire_count: 0,
       last_fired: null,
-      max_fires: opts.maxFires ?? null,
+      max_fires: opts.maxFires !== undefined ? opts.maxFires : (trigger === 'time' && !opts.recur ? 1 : null),
       recur_rule: recurRule,
       recur_parent_id: null,
       depends_on: opts.dependsOn || null,
@@ -164,7 +164,7 @@ export function coreAdd(db: Database.Database, opts: AddOptions): Reminder {
       opts.tags || null,
       opts.category || null,
       decayAt,
-      opts.maxFires ?? null,
+      opts.maxFires !== undefined ? opts.maxFires : (trigger === 'time' && !opts.recur ? 1 : null),
       recurRule,
       opts.dependsOn || null,
       source,

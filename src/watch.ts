@@ -36,6 +36,8 @@ export interface WatchOptions {
   onFireTimeout?: number;
   /** How often to run garbage collection in ms (default 24h) */
   gcIntervalMs?: number;
+  /** Dedup cooldown in seconds (default 300 = 5 minutes) */
+  cooldown?: number;
 }
 
 export interface WatchState {
@@ -46,10 +48,10 @@ export interface WatchState {
 }
 
 /** Returns true if the reminder should be notified (not in cooldown). */
-export function shouldNotify(state: WatchState, reminderId: string, now: number = Date.now()): boolean {
+export function shouldNotify(state: WatchState, reminderId: string, now: number = Date.now(), cooldownMs: number = DEDUP_COOLDOWN_MS): boolean {
   const last = state.lastNotified.get(reminderId);
   if (last === undefined) return true;
-  return now - last >= DEDUP_COOLDOWN_MS;
+  return now - last >= cooldownMs;
 }
 
 /** Mark a reminder as notified (records current timestamp). */
@@ -136,9 +138,10 @@ export function runCheckCycle(
       escalate: true,
     });
 
+    const cooldownMs = opts.cooldown !== undefined ? opts.cooldown * 1000 : DEDUP_COOLDOWN_MS;
     const notify = opts.onNotify ?? fireNotification;
     for (const rem of result.included) {
-      if (shouldNotify(state, rem.id, now)) {
+      if (shouldNotify(state, rem.id, now, cooldownMs)) {
         notify(rem);
         // Execute on-fire hook sequentially after notification
         if (opts.onFire) {

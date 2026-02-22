@@ -956,6 +956,7 @@ program
   .option('--verbose', 'Verbose output')
   .option('--on-fire <command>', 'Shell command to run when a reminder fires (data via env vars)')
   .option('--on-fire-timeout <ms>', 'Timeout for on-fire command in ms (default 5000)', parseInt)
+  .option('--cooldown <seconds>', 'Dedup cooldown in seconds (default 300)', parseInt)
   .option('--install', 'Install as a background OS service (launchd / systemd)')
   .option('--uninstall', 'Remove the background OS service')
   .option('--status', 'Show service status')
@@ -1008,6 +1009,7 @@ program
         verbose: opts.verbose,
         onFire: opts.onFire,
         onFireTimeout: opts.onFireTimeout,
+        cooldown: opts.cooldown,
       });
     } catch (e: any) {
       console.error(`[agentrem watch] error: ${e.message}`);

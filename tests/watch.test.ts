@@ -149,6 +149,26 @@ describe('DEDUP_COOLDOWN_MS', () => {
   });
 });
 
+describe('shouldNotify — custom cooldown', () => {
+  it('respects a custom cooldownMs of 10 seconds', () => {
+    const state = makeState();
+    const now = Date.now();
+    markNotified(state, 'rem-1', now);
+    // 5 seconds later — within 10s cooldown
+    expect(shouldNotify(state, 'rem-1', now + 5_000, 10_000)).toBe(false);
+    // 11 seconds later — beyond 10s cooldown
+    expect(shouldNotify(state, 'rem-1', now + 11_000, 10_000)).toBe(true);
+  });
+
+  it('respects a custom cooldownMs of 0 (always notify)', () => {
+    const state = makeState();
+    const now = Date.now();
+    markNotified(state, 'rem-1', now);
+    // Immediately — cooldown 0 means always re-notify
+    expect(shouldNotify(state, 'rem-1', now, 0)).toBe(true);
+  });
+});
+
 // ── GC timing ────────────────────────────────────────────────────────────────
 
 describe('runCheckCycle — gc timing', () => {
@@ -279,6 +299,49 @@ describe('runCheckCycle', () => {
     const notified = runCheckCycle(state, { dbPath, once: true, onNotify: noopNotify });
     const thisRem = notified.find((r) => r.id === rem.id);
     expect(thisRem).toBeDefined();
+  });
+
+  it('respects --cooldown option: does not re-notify within custom cooldown', () => {
+    const db = getDb(dbPath);
+    const rem = coreAdd(db, {
+      content: 'Cooldown option task',
+      trigger: 'heartbeat', // heartbeat never auto-completes
+      priority: 3,
+    });
+    db.close();
+
+    const state = makeState();
+    const now = Date.now();
+    // Notified 5 seconds ago
+    markNotified(state, rem.id, now - 5_000);
+
+    // Custom cooldown of 60 seconds — should NOT re-notify after 5s
+    const notified = runCheckCycle(
+      state,
+      { dbPath, once: true, onNotify: noopNotify, cooldown: 60 },
+      now,
+    );
+    const thisRem = notified.find((r) => r.id === rem.id);
+    expect(thisRem).toBeUndefined();
+  });
+
+  it('respects --cooldown option: notifies when not yet in cooldown', () => {
+    const db = getDb(dbPath);
+    coreAdd(db, {
+      content: 'Cooldown elapsed task',
+      trigger: 'heartbeat',
+      priority: 3,
+    });
+    db.close();
+
+    const state = makeState();
+    // Custom cooldown of 10 seconds, no prior notification
+    const notified = runCheckCycle(
+      state,
+      { dbPath, once: true, onNotify: noopNotify, cooldown: 10 },
+    );
+    expect(notified.length).toBeGreaterThanOrEqual(1);
+    expect(notified[0].content).toBe('Cooldown elapsed task');
   });
 });
 

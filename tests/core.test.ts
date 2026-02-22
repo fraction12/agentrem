@@ -183,6 +183,36 @@ describe('coreAdd', () => {
     expect(rem.max_fires).toBe(3);
   });
 
+  it('defaults max_fires to 1 for time trigger (no recur)', () => {
+    const rem = coreAdd(db, { content: 'One-shot', due: '+1h' });
+    expect(rem.max_fires).toBe(1);
+  });
+
+  it('defaults max_fires to null for keyword trigger', () => {
+    const rem = coreAdd(db, { content: 'KW reminder', trigger: 'keyword', keywords: 'deploy' });
+    expect(rem.max_fires).toBeNull();
+  });
+
+  it('defaults max_fires to null for session trigger', () => {
+    const rem = coreAdd(db, { content: 'Session reminder', trigger: 'session' });
+    expect(rem.max_fires).toBeNull();
+  });
+
+  it('respects explicit maxFires: 5 for time trigger', () => {
+    const rem = coreAdd(db, { content: 'Multi-fire time', due: '+1h', maxFires: 5 });
+    expect(rem.max_fires).toBe(5);
+  });
+
+  it('respects explicit maxFires: null to disable limit on time trigger', () => {
+    const rem = coreAdd(db, { content: 'Unlimited time', due: '+1h', maxFires: null });
+    expect(rem.max_fires).toBeNull();
+  });
+
+  it('defaults max_fires to null for time trigger with recur (recurring)', () => {
+    const rem = coreAdd(db, { content: 'Daily', due: '+1h', recur: '1d' });
+    expect(rem.max_fires).toBeNull();
+  });
+
   it('sets recurrence rule', () => {
     const rem = coreAdd(db, { content: 'Recurring', due: '+1h', recur: '1d' });
     expect(rem.recur_rule).toBeTruthy();
@@ -364,7 +394,7 @@ describe('coreCheck', () => {
   });
 
   it('reactivates snoozed reminders whose snooze expired', () => {
-    const rem = coreAdd(db, { content: 'Snoozed', due: pastIso(2) });
+    const rem = coreAdd(db, { content: 'Snoozed', due: pastIso(2), maxFires: null });
     // Manually snooze it to a past time
     db.prepare(
       "UPDATE reminders SET status='snoozed', snoozed_until=? WHERE id=?",
@@ -471,6 +501,25 @@ describe('coreCheck', () => {
     expect(updated.completed_at).toBeTruthy();
   });
 
+  it('auto-completes a time reminder after 1 fire (default max_fires=1)', () => {
+    const rem = coreAdd(db, { content: 'One-shot time', due: pastIso(1) });
+    expect(rem.max_fires).toBe(1);
+    coreCheck(db, {});
+    const updated = db.prepare('SELECT * FROM reminders WHERE id=?').get(rem.id) as any;
+    expect(updated.status).toBe('completed');
+    expect(updated.fire_count).toBe(1);
+  });
+
+  it('does not return a completed reminder in subsequent coreCheck calls', () => {
+    const rem = coreAdd(db, { content: 'Auto-done', due: pastIso(1) });
+    // First check: fires and auto-completes
+    const first = coreCheck(db, {});
+    expect(first.included.some((r) => r.id === rem.id)).toBe(true);
+    // Second check: reminder is completed, should not be returned
+    const second = coreCheck(db, {});
+    expect(second.included.some((r) => r.id === rem.id)).toBe(false);
+  });
+
   it('creates a fired history entry when a reminder fires', () => {
     const rem = coreAdd(db, { content: 'Fire test', due: pastIso(1) });
     coreCheck(db, {});
@@ -493,7 +542,7 @@ describe('coreCheck', () => {
   });
 
   it('creates multiple fired history entries for multiple fires', () => {
-    const rem = coreAdd(db, { content: 'Multi fire', due: pastIso(1) });
+    const rem = coreAdd(db, { content: 'Multi fire', due: pastIso(1), maxFires: null });
     coreCheck(db, {});
     coreCheck(db, {});
     coreCheck(db, {});
