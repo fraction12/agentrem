@@ -7,7 +7,7 @@ import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { getDb } from './db.js';
-import { coreCheck } from './core.js';
+import { coreCheck, coreGc } from './core.js';
 import { truncate } from './date-parser.js';
 import { buildNotifyOpts, sendNotification } from './notifier.js';
 import type { Reminder } from './types.js';
@@ -34,11 +34,15 @@ export interface WatchOptions {
   onFire?: string;
   /** Timeout for on-fire command in milliseconds (default 5000) */
   onFireTimeout?: number;
+  /** How often to run garbage collection in ms (default 24h) */
+  gcIntervalMs?: number;
 }
 
 export interface WatchState {
   /** Map of reminder ID → timestamp of last notification */
   lastNotified: Map<string, number>;
+  /** Timestamp of last garbage collection run (0 = never, triggers on first tick) */
+  lastGc?: number;
 }
 
 /** Returns true if the reminder should be notified (not in cooldown). */
@@ -95,6 +99,8 @@ export function executeOnFire(command: string, rem: Reminder, timeoutMs: number 
   }
 }
 
+const DEFAULT_GC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 /** Run a single check cycle: poll DB, notify due reminders, return notified list. */
 export function runCheckCycle(
   state: WatchState,
@@ -104,6 +110,26 @@ export function runCheckCycle(
   const db = getDb(opts.dbPath);
   let notified: Reminder[] = [];
   try {
+    // ── Periodic GC ────────────────────────────────────────────────────────
+    const gcIntervalMs = opts.gcIntervalMs ?? DEFAULT_GC_INTERVAL_MS;
+    const lastGc = state.lastGc ?? 0;
+    if (now - lastGc >= gcIntervalMs) {
+      try {
+        const gcResult = coreGc(db, 30);
+        state.lastGc = now;
+        if (opts.verbose) {
+          console.log(
+            `[agentrem watch] 🗑️  gc ran — ${gcResult.count} reminder(s) cleaned`,
+          );
+        }
+      } catch (gcErr) {
+        if (opts.verbose) {
+          const msg = gcErr instanceof Error ? gcErr.message : String(gcErr);
+          console.log(`[agentrem watch] ⚠️  gc error (non-fatal): ${msg}`);
+        }
+      }
+    }
+
     const result = coreCheck(db, {
       type: 'time,heartbeat,session,condition',
       agent: opts.agent || 'main',
@@ -147,7 +173,7 @@ export function runCheckCycle(
 /** Start the watch loop. Resolves when the loop stops (only if `once` or `signal` fires). */
 export async function startWatch(opts: WatchOptions, signal?: AbortSignal): Promise<void> {
   const intervalMs = (opts.interval ?? 30) * 1000;
-  const state: WatchState = { lastNotified: new Map() };
+  const state: WatchState = { lastNotified: new Map(), lastGc: 0 };
 
   if (opts.verbose) {
     console.log(

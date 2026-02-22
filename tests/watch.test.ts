@@ -149,6 +149,51 @@ describe('DEDUP_COOLDOWN_MS', () => {
   });
 });
 
+// ── GC timing ────────────────────────────────────────────────────────────────
+
+describe('runCheckCycle — gc timing', () => {
+  let tmpDir: string;
+  let dbPath: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentrem-gc-test-'));
+    dbPath = path.join(tmpDir, 'reminders.db');
+    process.env['AGENTREM_DB'] = dbPath;
+    initDb(false, dbPath);
+  });
+
+  afterEach(() => {
+    delete process.env['AGENTREM_DB'];
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const noopNotify = () => {};
+
+  it('runs gc on first poll (lastGc defaults to 0)', () => {
+    const state: WatchState = { lastNotified: new Map() }; // lastGc undefined → 0
+    const now = Date.now();
+    runCheckCycle(state, { dbPath, onNotify: noopNotify, gcIntervalMs: 86_400_000 }, now);
+    // state.lastGc should now be set to `now`
+    expect(state.lastGc).toBe(now);
+  });
+
+  it('does not run gc again within the interval', () => {
+    const now = Date.now();
+    const state: WatchState = { lastNotified: new Map(), lastGc: now - 1_000 }; // 1 sec ago
+    runCheckCycle(state, { dbPath, onNotify: noopNotify, gcIntervalMs: 86_400_000 }, now);
+    // gc should NOT have run — lastGc unchanged
+    expect(state.lastGc).toBe(now - 1_000);
+  });
+
+  it('runs gc again after the interval elapses', () => {
+    const now = Date.now();
+    const state: WatchState = { lastNotified: new Map(), lastGc: now - 86_400_001 }; // just over 24h ago
+    runCheckCycle(state, { dbPath, onNotify: noopNotify, gcIntervalMs: 86_400_000 }, now);
+    // gc should have run — lastGc updated to now
+    expect(state.lastGc).toBe(now);
+  });
+});
+
 // ── runCheckCycle integration ─────────────────────────────────────────────────
 
 describe('runCheckCycle', () => {
