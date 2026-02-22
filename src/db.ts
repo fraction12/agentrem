@@ -22,6 +22,13 @@ export function getDb(dbPath?: string): Database.Database {
     // Auto-initialize on first use so `agentrem check` works without `agentrem init`
     initDb(false, p);
   }
+  if (process.platform !== 'win32') {
+    const stat = fs.statSync(p);
+    const mode = stat.mode & 0o777;
+    if (mode & 0o077) {
+      console.warn(`⚠️  Warning: ${p} has loose permissions (${mode.toString(8)}). Run: chmod 600 ${p}`);
+    }
+  }
   const db = new Database(p);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');

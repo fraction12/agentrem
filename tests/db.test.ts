@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -329,5 +329,67 @@ describe('getHistoryEntries', () => {
   it('respects the limit parameter', () => {
     const entries = getHistoryEntries(db, undefined, 2);
     expect(entries.length).toBe(2);
+  });
+});
+
+// ── DB permission warning ─────────────────────────────────────────────────────
+
+describe('getDb — permission warning', () => {
+  let tmpDir2: string;
+  let dbPath2: string;
+  let origDir: string | undefined;
+  let origDb: string | undefined;
+
+  beforeEach(() => {
+    tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'agentrem-perm-test-'));
+    dbPath2 = path.join(tmpDir2, 'reminders.db');
+    origDir = process.env['AGENTREM_DIR'];
+    origDb = process.env['AGENTREM_DB'];
+    process.env['AGENTREM_DIR'] = tmpDir2;
+    process.env['AGENTREM_DB'] = dbPath2;
+    initDb(false, dbPath2);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (origDir !== undefined) process.env['AGENTREM_DIR'] = origDir;
+    else delete process.env['AGENTREM_DIR'];
+    if (origDb !== undefined) process.env['AGENTREM_DB'] = origDb;
+    else delete process.env['AGENTREM_DB'];
+    fs.rmSync(tmpDir2, { recursive: true, force: true });
+  });
+
+  it('warns when DB file has world-readable permissions (e.g. 644)', () => {
+    if (process.platform === 'win32') return; // skip on Windows
+
+    // Set loose permissions on the DB file
+    fs.chmodSync(dbPath2, 0o644);
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const db = getDb(dbPath2);
+    db.close();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('has loose permissions'),
+    );
+  });
+
+  it('does not warn when DB file has strict permissions (e.g. 600)', () => {
+    if (process.platform === 'win32') return; // skip on Windows
+
+    // Set strict permissions on the DB file
+    fs.chmodSync(dbPath2, 0o600);
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const db = getDb(dbPath2);
+    db.close();
+
+    // Should not warn about permissions
+    const permWarnings = warnSpy.mock.calls.filter((args) =>
+      String(args[0]).includes('has loose permissions'),
+    );
+    expect(permWarnings).toHaveLength(0);
   });
 });

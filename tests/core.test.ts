@@ -1527,7 +1527,70 @@ describe('coreImport', () => {
       history: [],
     };
     const result = coreImport(db, data, false, true);
-    expect(result.skipped).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(result.skippedInvalid).toBe(1);
+  });
+
+  it('skips entries missing content field', () => {
+    const data: any = {
+      exported_at: dtToIso(new Date()),
+      schema_version: 1,
+      reminder_count: 2,
+      reminders: [
+        { id: 'rem-1', status: 'active', trigger_type: 'time' }, // missing content
+        { id: 'rem-2', content: 'valid', status: 'active', trigger_type: 'time' },
+      ],
+      history: [],
+    };
+    const result = coreImport(db, data, false, true);
+    expect(result.skippedInvalid).toBe(1);
+    expect(result.imported).toBe(1);
+  });
+
+  it('skips entries missing id field', () => {
+    const data: any = {
+      exported_at: dtToIso(new Date()),
+      schema_version: 1,
+      reminder_count: 1,
+      reminders: [{ content: 'hello', status: 'active', trigger_type: 'time' }], // missing id
+      history: [],
+    };
+    const result = coreImport(db, data, false, true);
+    expect(result.skippedInvalid).toBe(1);
+    expect(result.imported).toBe(0);
+  });
+
+  it('skippedInvalid counts all invalid entries', () => {
+    const data: any = {
+      exported_at: dtToIso(new Date()),
+      schema_version: 1,
+      reminder_count: 3,
+      reminders: [
+        { id: 'r1' }, // missing content, status, trigger_type
+        { id: 'r2', content: 'hello' }, // missing status, trigger_type
+        { id: 'r3', content: 'hello', status: 'active', trigger_type: 'time' }, // valid
+      ],
+      history: [],
+    };
+    const result = coreImport(db, data, false, true);
+    expect(result.skippedInvalid).toBe(2);
+    expect(result.imported).toBe(1);
+  });
+
+  it('dryRun correctly counts skippedInvalid', () => {
+    const data: any = {
+      exported_at: dtToIso(new Date()),
+      schema_version: 1,
+      reminder_count: 2,
+      reminders: [
+        { id: 'r1' }, // invalid
+        { id: 'r2', content: 'hello', status: 'active', trigger_type: 'time' }, // valid
+      ],
+      history: [],
+    };
+    const result = coreImport(db, data, false, false, true);
+    expect(result.skippedInvalid).toBe(1);
+    expect(result.imported).toBe(1);
   });
 });
 

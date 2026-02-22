@@ -682,8 +682,8 @@ program
       }
 
       const dir = path.dirname(outPath);
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(outPath, JSON.stringify(data, null, 2));
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(outPath, JSON.stringify(data, null, 2), { mode: 0o600 });
 
       console.log(`📦 Exported ${data.reminder_count} reminders to ${outPath}`);
     } finally {
@@ -706,7 +706,31 @@ program
       process.exit(2);
     }
 
-    const data: ExportData = JSON.parse(fs.readFileSync(file, 'utf8'));
+    let rawParsed: unknown;
+    try {
+      rawParsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (e: unknown) {
+      console.error(`Error: Failed to parse import file: ${(e as Error).message}`);
+      process.exit(2);
+    }
+    if (typeof rawParsed !== 'object' || rawParsed === null || Array.isArray(rawParsed)) {
+      console.error('Error: Import file must be a JSON object.');
+      process.exit(2);
+    }
+    const rawObj = rawParsed as Record<string, unknown>;
+    if (!('schema_version' in rawObj)) {
+      console.error('Error: Import file is missing required field: schema_version');
+      process.exit(2);
+    }
+    if ('reminders' in rawObj && !Array.isArray(rawObj['reminders'])) {
+      console.error('Error: Import file field "reminders" must be an array.');
+      process.exit(2);
+    }
+    if ('history' in rawObj && !Array.isArray(rawObj['history'])) {
+      console.error('Error: Import file field "history" must be an array.');
+      process.exit(2);
+    }
+    const data = rawObj as unknown as ExportData;
 
     if (opts.dryRun) {
       console.log(

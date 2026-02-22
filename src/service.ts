@@ -179,7 +179,7 @@ export function installService(opts: ServiceOptions = {}): ServiceResult {
 
     const plist = generateLaunchdPlist(opts);
     fs.mkdirSync(path.dirname(plistPath), { recursive: true });
-    fs.writeFileSync(plistPath, plist, 'utf8');
+    fs.writeFileSync(plistPath, plist, { encoding: 'utf8', mode: 0o600 });
 
     // Unload first if already loaded (ignore errors)
     try {
@@ -220,7 +220,7 @@ export function installService(opts: ServiceOptions = {}): ServiceResult {
     fs.mkdirSync(path.dirname(unitPath), { recursive: true });
 
     const unit = generateSystemdUnit(opts);
-    fs.writeFileSync(unitPath, unit, 'utf8');
+    fs.writeFileSync(unitPath, unit, { encoding: 'utf8', mode: 0o600 });
 
     try {
       execFileSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'pipe' });

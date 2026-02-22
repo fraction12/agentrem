@@ -3,7 +3,7 @@
 // due reminders, with per-reminder dedup (5-minute cooldown).
 
 import { execSync } from 'node:child_process';
-import { mkdirSync, appendFileSync } from 'node:fs';
+import { mkdirSync, appendFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { getDb } from './db.js';
@@ -108,9 +108,12 @@ export function executeOnFire(command: string, rem: Reminder, timeoutMs: number 
     return true;
   } catch (err: unknown) {
     try {
-      mkdirSync(ON_FIRE_LOG_DIR, { recursive: true });
+      mkdirSync(ON_FIRE_LOG_DIR, { recursive: true, mode: 0o700 });
       const msg = err instanceof Error ? err.message : String(err);
       const line = `${new Date().toISOString()} | ${rem.id.slice(0, 8)} | ${msg}\n`;
+      if (!existsSync(ON_FIRE_LOG_FILE)) {
+        writeFileSync(ON_FIRE_LOG_FILE, '', { mode: 0o600 });
+      }
       appendFileSync(ON_FIRE_LOG_FILE, line);
     } catch {
       // If even logging fails, silently continue

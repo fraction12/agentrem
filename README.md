@@ -183,6 +183,8 @@ fi
 
 ## watch --on-fire: Hooks
 
+> ⚠️ **Security:** The `--on-fire` command runs with your user's permissions. Only use trusted commands. Reminder data is passed via environment variables (never shell-interpolated) to prevent injection.
+
 Execute a shell command whenever a reminder fires:
 
 ```bash

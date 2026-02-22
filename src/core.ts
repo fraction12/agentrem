@@ -1157,6 +1157,7 @@ export interface ImportResult {
   imported: number;
   skipped: number;
   historyImported: number;
+  skippedInvalid: number;
 }
 
 export function coreImport(
@@ -1169,11 +1170,17 @@ export function coreImport(
   const reminders = data.reminders || [];
   const history = data.history || [];
 
+  const REQUIRED_FIELDS = ['id', 'content', 'status', 'trigger_type'];
+  const isValidReminder = (rem: Record<string, unknown>) =>
+    REQUIRED_FIELDS.every((f) => rem[f] !== undefined && rem[f] !== null && rem[f] !== '');
+
   if (dryRun) {
+    const invalidCount = reminders.filter((r) => !isValidReminder(r)).length;
     return {
-      imported: reminders.length,
+      imported: reminders.length - invalidCount,
       skipped: 0,
       historyImported: history.length,
+      skippedInvalid: invalidCount,
     };
   }
 
@@ -1184,8 +1191,14 @@ export function coreImport(
 
   let imported = 0;
   let skipped = 0;
+  let skippedInvalid = 0;
 
   for (const rem of reminders) {
+    if (!isValidReminder(rem)) {
+      skippedInvalid++;
+      continue;
+    }
+
     if (merge) {
       const existing = db
         .prepare('SELECT id FROM reminders WHERE id = ?')
@@ -1228,7 +1241,7 @@ export function coreImport(
     }
   }
 
-  return { imported, skipped, historyImported };
+  return { imported, skipped, historyImported, skippedInvalid };
 }
 
 // ── Schema ────────────────────────────────────────────────────────────────
