@@ -1,6 +1,6 @@
 {
   "name": "agentrem",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Structured reminders CLI for AI agents with MCP server",
   "type": "module",
   "main": "dist/api.js",
