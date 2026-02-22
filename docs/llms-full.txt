@@ -42,7 +42,7 @@ Create a reminder.
 | `--check <cmd>` | Shell command for condition trigger | `--check "curl -s http://localhost:3000/health"` |
 | `--expect <output>` | Expected output for condition trigger | `--expect "ok"` |
 | `--decay <datetime>` | Auto-expire after this datetime | `--decay "+7d"` |
-| `--max-fires <n>` | Auto-complete after N triggers | `--max-fires 3` |
+| `--max-fires <n>` | Auto-complete after N triggers (default: 1 for time, unlimited for keyword/session/heartbeat) | `--max-fires 3` |
 | `--recur, -r <rule>` | Recurrence: 1d, 2d, 1w, 2w, 1m | `--recur 1w` |
 | `--agent, -a <name>` | Agent namespace (default: main) | `--agent jarvis` |
 | `--depends-on <id>` | Dependency reminder ID (waits until it's completed) | `--depends-on abc12345` |
@@ -537,6 +537,7 @@ Background daemon that polls for due reminders and fires native OS notifications
 | `--status` | Show service status |
 | `--on-fire <command>` | Execute shell command when a reminder fires (env vars: AGENTREM_ID, AGENTREM_CONTENT, AGENTREM_PRIORITY, AGENTREM_TAGS, AGENTREM_CONTEXT, AGENTREM_DUE, AGENTREM_FIRE_COUNT) |
 | `--on-fire-timeout <ms>` | Timeout for on-fire command (default: 5000) |
+| `--cooldown <seconds>` | Dedup cooldown between re-notifications for same reminder (default: 300) |
 
 ```bash
 # Run in foreground
@@ -556,7 +557,8 @@ agentrem watch --status                  # Show installed/running status
 #### How polling works
 
 - Runs check with types `time,heartbeat,session,condition` and escalation on every tick
-- Per-reminder **dedup cooldown**: once notified, won't fire again for 5 minutes
+- Per-reminder **dedup cooldown**: once notified, won't fire again for 5 minutes (configurable via `--cooldown`)
+- **Time triggers fire once by default** (`max_fires=1`), then auto-complete. Keyword/session/heartbeat triggers fire unlimited.
 - Handles SIGINT/SIGTERM for clean shutdown
 - First check runs immediately on start
 

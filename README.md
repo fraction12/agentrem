@@ -109,7 +109,7 @@ Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `c
 
 | Type | Fires when... | Key flags |
 |------|--------------|-----------|
-| `time` | Due datetime is reached | `--due` |
+| `time` | Due datetime is reached | `--due` (fires once by default, use `--max-fires` or `--recur` to override) |
 | `keyword` | Message text matches | `--keywords`, `--match any\|all\|regex` |
 | `condition` | Shell command output matches | `--check`, `--expect` |
 | `session` | Every session start check | — |
