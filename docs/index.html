@@ -4,108 +4,459 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>agentrem — Structured Reminders for AI Agents</title>
-  <meta name="description" content="Persistent, searchable reminders that work across AI agent sessions. CLI + MCP server. Zero config, SQLite-backed.">
+  <meta name="description" content="Persistent, searchable reminders that work across AI agent sessions. CLI + MCP server. SQLite-backed, zero config.">
   <style>
-    :root { --bg: #0a0a0a; --fg: #e4e4e4; --accent: #f59e0b; --dim: #888; --code-bg: #1a1a1a; --border: #2a2a2a; }
+    :root {
+      --bg: #0a0a0a;
+      --bg2: #111111;
+      --bg3: #181818;
+      --fg: #e4e4e4;
+      --dim: #888;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245,158,11,0.12);
+      --accent-hover: #fbbf24;
+      --code-bg: #161616;
+      --border: #242424;
+      --border2: #2e2e2e;
+      --radius: 10px;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; }
-    .container { max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem; }
-    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-    h1 span { color: var(--accent); }
-    .tagline { color: var(--dim); font-size: 1.2rem; margin-bottom: 2rem; }
-    h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; color: var(--accent); }
-    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.9rem; }
-    code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
-    p { margin: 0.75rem 0; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .badges { margin: 1rem 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .badges img { height: 20px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
-    .card { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-    .card h3 { color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem; }
-    .card p { color: var(--dim); font-size: 0.9rem; }
-    .cta { display: inline-block; background: var(--accent); color: #000; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; margin: 1rem 0.5rem 1rem 0; }
-    .cta:hover { text-decoration: none; opacity: 0.9; }
-    footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.85rem; }
-    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 1.8rem; } }
+    html { scroll-behavior: smooth; }
+    body { font-family: -apple-system, 'Inter', BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.65; font-size: 15px; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* ── NAV ── */
+    nav { border-bottom: 1px solid var(--border); padding: 1rem 0; position: sticky; top: 0; background: rgba(10,10,10,0.9); backdrop-filter: blur(12px); z-index: 100; }
+    nav .inner { max-width: 900px; margin: 0 auto; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .nav-logo { font-size: 1rem; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 0.4rem; }
+    .nav-logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 1.5rem; }
+    .nav-links a { color: var(--dim); font-size: 0.85rem; text-decoration: none; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--fg); }
+
+    /* ── HERO ── */
+    .hero { padding: 6rem 0 5rem; text-align: center; }
+    .hero-icon { font-size: 4rem; line-height: 1; margin-bottom: 1.5rem; display: block; }
+    .hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 1rem; }
+    .hero h1 span { color: var(--accent); }
+    .hero-tagline { font-size: 1.15rem; color: var(--dim); max-width: 520px; margin: 0 auto 2rem; line-height: 1.6; }
+    .badges { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-bottom: 2.5rem; }
+    .badge { display: inline-flex; align-items: center; gap: 0.3rem; background: var(--bg3); border: 1px solid var(--border2); border-radius: 20px; padding: 0.3rem 0.75rem; font-size: 0.78rem; color: var(--dim); font-family: 'SF Mono', 'Fira Code', monospace; }
+    .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot-green { background: #34d399; }
+    .dot-blue { background: #60a5fa; }
+    .dot-amber { background: var(--accent); }
+    .dot-purple { background: #a78bfa; }
+    .cta-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.4rem; border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; border: none; transition: all 0.2s; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(245,158,11,0.3); }
+    .btn-outline { background: transparent; color: var(--fg); border: 1px solid var(--border2); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .btn-code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; }
+
+    /* ── SECTION HEADINGS ── */
+    section { padding: 4rem 0; }
+    section + section { border-top: 1px solid var(--border); }
+    .section-label { font-size: 0.75rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+    .section-title { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+    .section-title .accent-marker { color: var(--accent); margin-right: 0.4rem; }
+    .section-sub { color: var(--dim); font-size: 0.95rem; margin-bottom: 2rem; }
+
+    /* ── CODE BLOCK ── */
+    .code-wrapper { background: var(--code-bg); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
+    .code-header { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1rem; background: var(--bg3); border-bottom: 1px solid var(--border); }
+    .code-dots { display: flex; gap: 6px; }
+    .code-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .cd-red { background: #ff5f57; }
+    .cd-yellow { background: #febc2e; }
+    .cd-green { background: #28c840; }
+    .code-title { font-size: 0.75rem; color: var(--dim); font-family: 'SF Mono', 'Fira Code', monospace; }
+    .code-copy { background: none; border: none; cursor: pointer; color: var(--dim); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+    .code-copy:hover { color: var(--fg); background: var(--border2); }
+    .code-copy.copied { color: #34d399; }
+    pre { padding: 1.2rem 1.4rem; overflow-x: auto; font-size: 0.85rem; line-height: 1.7; }
+    pre code { font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace; color: var(--fg); }
+    .token-comment { color: #5a5a6a; }
+    .token-prompt { color: var(--accent); }
+    .token-string { color: #a3e635; }
+    .token-key { color: #60a5fa; }
+    .token-val { color: #a3e635; }
+
+    /* ── TAB SWITCHER ── */
+    .tabs { display: flex; gap: 2px; padding: 0.5rem; background: var(--bg3); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .tab { padding: 0.35rem 0.85rem; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; color: var(--dim); border: none; background: none; font-family: 'SF Mono', 'Fira Code', monospace; transition: all 0.15s; }
+    .tab:hover { color: var(--fg); background: var(--border); }
+    .tab.active { background: var(--accent); color: #000; font-weight: 700; }
+
+    /* ── FEATURE GRID ── */
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .feature-card { background: var(--bg2); padding: 1.5rem; transition: background 0.2s; }
+    .feature-card:hover { background: var(--bg3); }
+    .feature-icon { font-size: 1.8rem; line-height: 1; margin-bottom: 0.75rem; display: block; }
+    .feature-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--fg); }
+    .feature-desc { font-size: 0.83rem; color: var(--dim); line-height: 1.5; }
+    .feature-desc code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; color: var(--accent); background: var(--accent-dim); padding: 1px 4px; border-radius: 3px; }
+
+    /* ── AGENTS SECTION ── */
+    .agents-block { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; }
+    .agents-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, rgba(245,158,11,0.06), transparent); }
+    .agents-header h3 { font-size: 1.1rem; font-weight: 700; color: var(--fg); }
+    .agents-header p { font-size: 0.85rem; color: var(--dim); margin-top: 0.2rem; }
+
+    /* ── INTEGRATIONS ── */
+    .pills-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.5rem; }
+    .pill { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.9rem; border-radius: 20px; font-size: 0.82rem; font-weight: 600; border: 1px solid; }
+    .pill-coral { background: rgba(249,115,22,0.1); border-color: rgba(249,115,22,0.3); color: #fb923c; }
+    .pill-red { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #f87171; }
+    .pill-blue { background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.3); color: #60a5fa; }
+    .pill-green { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); color: #34d399; }
+    .pill-purple { background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.3); color: #a78bfa; }
+    .pill-white { background: rgba(228,228,228,0.08); border-color: rgba(228,228,228,0.2); color: var(--fg); }
+    .pill-yellow { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); color: #fbbf24; }
+
+    /* ── DATES SECTION ── */
+    .dates-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
+    .date-chip { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 0.35rem 0.75rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; color: var(--accent); transition: border-color 0.2s; }
+    .date-chip:hover { border-color: var(--accent); }
+
+    /* ── DOC CARDS ── */
+    .doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+    .doc-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 1.5rem; text-decoration: none; transition: all 0.2s; display: flex; gap: 1rem; align-items: flex-start; }
+    .doc-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+    .doc-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .doc-name { font-size: 0.95rem; font-weight: 700; color: var(--fg); font-family: 'SF Mono', 'Fira Code', monospace; margin-bottom: 0.2rem; }
+    .doc-desc { font-size: 0.82rem; color: var(--dim); }
+
+    /* ── FOOTER ── */
+    footer { border-top: 1px solid var(--border); padding: 2rem 0; text-align: center; }
+    footer p { color: var(--dim); font-size: 0.85rem; }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { color: var(--accent-hover); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .feature-grid { grid-template-columns: 1fr 1fr; }
+      .doc-grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+      .hero { padding: 4rem 0 3rem; }
+    }
+    @media (max-width: 500px) {
+      .feature-grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 2.2rem; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔔 <span>agentrem</span></h1>
-    <p class="tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
 
+<!-- NAV -->
+<nav>
+  <div class="inner">
+    <div class="nav-logo">🔔 <span>agentrem</span></div>
+    <div class="nav-links">
+      <a href="#quickstart">Quick Start</a>
+      <a href="#features">Features</a>
+      <a href="#agents">For Agents</a>
+      <a href="#integrations">Works With</a>
+      <a href="https://github.com/dushyant4665/agentrem" target="_blank">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="container">
+  <section class="hero">
+    <span class="hero-icon">🔔</span>
+    <h1><span>agentrem</span></h1>
+    <p class="hero-tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
     <div class="badges">
-      <img src="https://img.shields.io/npm/v/agentrem?color=f59e0b" alt="npm">
-      <img src="https://img.shields.io/badge/tests-392-brightgreen" alt="tests">
-      <img src="https://img.shields.io/badge/license-MIT-blue" alt="license">
-      <img src="https://img.shields.io/badge/MCP-compatible-purple" alt="MCP">
+      <span class="badge"><span class="dot dot-amber"></span>v1.5.0</span>
+      <span class="badge"><span class="dot dot-green"></span>413 tests passing</span>
+      <span class="badge"><span class="dot dot-blue"></span>MIT License</span>
+      <span class="badge"><span class="dot dot-purple"></span>MCP Compatible</span>
     </div>
-
-    <h2>Instant Start</h2>
-    <pre><code>npx agentrem add "Deploy to prod" --due tomorrow --priority 2
-npx agentrem check
-npx agentrem list --json</code></pre>
-
-    <h2>Why agentrem?</h2>
-    <div class="grid">
-      <div class="card">
-        <h3>🧠 Persistent</h3>
-        <p>SQLite-backed. Survives restarts, context resets, and session boundaries.</p>
-      </div>
-      <div class="card">
-        <h3>🔍 Searchable</h3>
-        <p>Full-text search with FTS5. Find any reminder instantly.</p>
-      </div>
-      <div class="card">
-        <h3>🤖 Agent-Native</h3>
-        <p>--json output, MCP server, CLI-first. Built for agents, not humans.</p>
-      </div>
-      <div class="card">
-        <h3>🔔 Native Notifications</h3>
-        <p>macOS bell icon, priority sounds, "Complete ✅" button. Background watcher daemon.</p>
-      </div>
+    <div class="cta-row">
+      <button class="btn btn-primary btn-code" onclick="copyInstall(this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        npm install -g agentrem
+      </button>
+      <a class="btn btn-outline" href="https://github.com/dushyant4665/agentrem" target="_blank">GitHub →</a>
     </div>
+  </section>
+</div>
 
-    <h2>For AI Agents</h2>
-    <p>Add this to your agent's instructions (CLAUDE.md, AGENTS.md, system prompt):</p>
-    <pre><code>## Reminders
-You have access to `agentrem` CLI for persistent reminders across sessions.
+<!-- QUICK START -->
+<div class="container">
+  <section id="quickstart">
+    <div class="section-label">Get started</div>
+    <h2 class="section-title"><span class="accent-marker">⟩</span>Quick Start</h2>
+    <p class="section-sub">Choose your preferred installation method.</p>
 
-On session start: agentrem check --type time,session --budget 800
-When user says "remind me": agentrem add "&lt;content&gt;" --due "&lt;when&gt;" --priority &lt;1-5&gt;
-Key commands: add, check, list, search, complete, snooze</code></pre>
+    <div class="code-wrapper">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(this,'tab-npx')">npx</button>
+        <button class="tab" onclick="switchTab(this,'tab-npm')">npm</button>
+        <button class="tab" onclick="switchTab(this,'tab-mcp')">MCP</button>
+        <button class="tab" onclick="switchTab(this,'tab-api')">API</button>
+      </div>
 
-    <h2>MCP Server</h2>
-    <p>Works with Claude Desktop, Cursor, Windsurf — any MCP-compatible client:</p>
-    <pre><code>{
-  "mcpServers": {
-    "agentrem": {
-      "command": "agentrem-mcp",
-      "args": []
+      <!-- npx -->
+      <div id="tab-npx">
+        <div class="code-header">
+          <div class="code-dots"><div class="code-dot cd-red"></div><div class="code-dot cd-yellow"></div><div class="code-dot cd-green"></div></div>
+          <span class="code-title">terminal</span>
+          <button class="code-copy" onclick="copyCode(this,'tab-npx')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <pre><code><span class="token-comment"># Zero install. Just works.</span>
+<span class="token-prompt">$</span> npx agentrem add <span class="token-string">"Deploy to prod"</span> --due tomorrow --priority 2
+<span class="token-prompt">$</span> npx agentrem check
+<span class="token-prompt">$</span> npx agentrem list --json</code></pre>
+      </div>
+
+      <!-- npm -->
+      <div id="tab-npm" style="display:none">
+        <div class="code-header">
+          <div class="code-dots"><div class="code-dot cd-red"></div><div class="code-dot cd-yellow"></div><div class="code-dot cd-green"></div></div>
+          <span class="code-title">terminal</span>
+          <button class="code-copy" onclick="copyCode(this,'tab-npm')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <pre><code><span class="token-comment"># Install globally</span>
+<span class="token-prompt">$</span> npm install -g agentrem
+
+<span class="token-comment"># Meet your reminders</span>
+<span class="token-prompt">$</span> agentrem quickstart</code></pre>
+      </div>
+
+      <!-- MCP -->
+      <div id="tab-mcp" style="display:none">
+        <div class="code-header">
+          <div class="code-dots"><div class="code-dot cd-red"></div><div class="code-dot cd-yellow"></div><div class="code-dot cd-green"></div></div>
+          <span class="code-title">claude_desktop_config.json</span>
+          <button class="code-copy" onclick="copyCode(this,'tab-mcp')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <pre><code>{
+  <span class="token-key">"mcpServers"</span>: {
+    <span class="token-key">"agentrem"</span>: {
+      <span class="token-key">"command"</span>: <span class="token-val">"agentrem-mcp"</span>,
+      <span class="token-key">"args"</span>: []
     }
   }
 }</code></pre>
+      </div>
 
-    <h2>Background Watcher</h2>
-    <pre><code>agentrem watch --install   # runs as daemon, survives reboots
-agentrem watch --status    # check if running
-agentrem watch --once      # single check (for cron)</code></pre>
+      <!-- API -->
+      <div id="tab-api" style="display:none">
+        <div class="code-header">
+          <div class="code-dots"><div class="code-dot cd-red"></div><div class="code-dot cd-yellow"></div><div class="code-dot cd-green"></div></div>
+          <span class="code-title">TypeScript</span>
+          <button class="code-copy" onclick="copyCode(this,'tab-api')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <pre><code>import { add, check, list, complete } from <span class="token-string">'agentrem'</span>;
 
-    <h2>Agent Documentation</h2>
-    <p>Machine-readable docs for agent consumption:</p>
-    <p>
-      <a href="./llms.txt">llms.txt</a> — Quick reference<br>
-      <a href="./llms-full.txt">llms-full.txt</a> — Complete API reference
-    </p>
+await add(<span class="token-string">"Ship feature"</span>, { due: <span class="token-string">"tomorrow"</span>, priority: 2 });
+const due = await check();
+const all = await list();
+await complete(due[0].id);</code></pre>
+      </div>
+    </div>
+  </section>
+</div>
 
-    <a class="cta" href="https://www.npmjs.com/package/agentrem">npm install -g agentrem</a>
-    <a class="cta" href="https://github.com/fraction12/agentrem" style="background: var(--code-bg); color: var(--fg); border: 1px solid var(--border);">GitHub →</a>
+<!-- FEATURES -->
+<div class="container">
+  <section id="features">
+    <div class="section-label">What you get</div>
+    <h2 class="section-title"><span class="accent-marker">⟩</span>Features</h2>
+    <p class="section-sub">Everything you need to give your AI agent a reliable memory for tasks.</p>
 
-    <footer>
-      <p>MIT License · Built for the agent economy · <a href="https://github.com/fraction12/agentrem">fraction12/agentrem</a></p>
-    </footer>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <span class="feature-icon">🧠</span>
+        <div class="feature-title">Persistent</div>
+        <div class="feature-desc">SQLite-backed. Survives restarts, context resets, session boundaries.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔍</span>
+        <div class="feature-title">Searchable</div>
+        <div class="feature-desc">Full-text search with FTS5. Find any reminder instantly.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📋</span>
+        <div class="feature-title">Structured Output</div>
+        <div class="feature-desc"><code>--json</code> on every command. Built for agents, not humans.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔔</span>
+        <div class="feature-title">Native Notifications</div>
+        <div class="feature-desc">macOS bell icon, priority sounds, "Complete ✅" action button.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">⏰</span>
+        <div class="feature-title">Background Watcher</div>
+        <div class="feature-desc">Daemon mode with <code>--install</code>. Checks every 30s, survives reboots.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔌</span>
+        <div class="feature-title">MCP Server</div>
+        <div class="feature-desc">Works with Claude Desktop, Cursor, Windsurf. Any MCP client.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- FOR AGENTS -->
+<div class="container">
+  <section id="agents">
+    <div class="section-label">AI integration</div>
+    <h2 class="section-title"><span class="accent-marker">⟩</span>Built for Agents</h2>
+    <p class="section-sub">Add this to your agent's system prompt or instructions file:</p>
+
+    <div class="agents-block">
+      <div class="agents-header">
+        <h3>🤖 Agent Setup Instructions</h3>
+        <p>Run <code style="font-family:'SF Mono','Fira Code',monospace;color:var(--accent)">agentrem setup</code> to generate these instructions automatically.</p>
+      </div>
+      <div class="code-header" style="border-top:none;border-bottom:1px solid var(--border);">
+        <div class="code-dots"><div class="code-dot cd-red"></div><div class="code-dot cd-yellow"></div><div class="code-dot cd-green"></div></div>
+        <span class="code-title">AGENTS.md / system-prompt</span>
+        <button class="code-copy" onclick="copyCode(this,'agent-block')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+      </div>
+      <div id="agent-block">
+        <pre><code><span class="token-comment">## Reminders (agentrem)</span>
+You have access to `agentrem` for persistent reminders across sessions.
+- Session start: `agentrem check --type time,session --budget 800`
+- Add: `agentrem add "&lt;content&gt;" --due "&lt;when&gt;" --priority &lt;1-5&gt;`
+- Commands: add, check, list, search, complete, snooze, stats
+- Use --json for structured output</code></pre>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- INTEGRATIONS -->
+<div class="container">
+  <section id="integrations">
+    <div class="section-label">Ecosystem</div>
+    <h2 class="section-title"><span class="accent-marker">⟩</span>Works With</h2>
+    <p class="section-sub">Drop agentrem into any AI coding workflow or MCP-compatible client.</p>
+    <div class="pills-row">
+      <span class="pill pill-coral">🤖 Claude Code</span>
+      <span class="pill pill-red">🦅 OpenClaw</span>
+      <span class="pill pill-blue">⚡ Cursor</span>
+      <span class="pill pill-green">🌊 Windsurf</span>
+      <span class="pill pill-coral">🖥 Claude Desktop</span>
+      <span class="pill pill-purple">🔌 Any MCP Client</span>
+      <span class="pill pill-white">🍎 macOS</span>
+      <span class="pill pill-yellow">🐧 Linux</span>
+    </div>
+  </section>
+</div>
+
+<!-- NATURAL LANGUAGE DATES -->
+<div class="container">
+  <section id="dates">
+    <div class="section-label">Smart parsing</div>
+    <h2 class="section-title"><span class="accent-marker">⟩</span>Natural Language Dates</h2>
+    <p class="section-sub">Use plain English for scheduling — agentrem understands it all.</p>
+    <div class="dates-list">
+      <span class="date-chip">now</span>
+      <span class="date-chip">tomorrow</span>
+      <span class="date-chip">in 5 minutes</span>
+      <span class="date-chip">in 2 hours</span>
+      <span class="date-chip">in 3 days</span>
+      <span class="date-chip">next monday</span>
+      <span class="date-chip">end of week</span>
+      <span class="date-chip">2026-03-01</span>
+    </div>
+  </section>
+</div>
+
+<!-- AGENT DOCS -->
+<div class="container">
+  <section id="docs">
+    <div class="section-label">Documentation</div>
+    <h2 class="section-title"><span class="accent-marker">⟩</span>Agent Documentation</h2>
+    <p class="section-sub">Plain-text references optimised for LLM consumption.</p>
+    <div class="doc-grid">
+      <a class="doc-card" href="./llms.txt" target="_blank">
+        <span class="doc-icon">📄</span>
+        <div>
+          <div class="doc-name">llms.txt</div>
+          <div class="doc-desc">Quick reference for agents — commands, flags, examples. Paste directly into context.</div>
+        </div>
+      </a>
+      <a class="doc-card" href="./llms-full.txt" target="_blank">
+        <span class="doc-icon">📚</span>
+        <div>
+          <div class="doc-name">llms-full.txt</div>
+          <div class="doc-desc">Complete API reference with all options, return types, and integration patterns.</div>
+        </div>
+      </a>
+    </div>
+  </section>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <p>MIT License · Built for the agent economy · <a href="https://github.com/dushyant4665/agentrem" target="_blank">GitHub ↗</a></p>
+    <p style="margin-top:0.35rem;font-size:0.78rem;">Made with ☕ by <a href="https://openclaw.ai" target="_blank">OpenClaw</a></p>
   </div>
+</footer>
+
+<script>
+  // Tab switcher
+  function switchTab(btn, targetId) {
+    const wrapper = btn.closest('.code-wrapper');
+    wrapper.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+    wrapper.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(targetId).style.display = 'block';
+    btn.classList.add('active');
+  }
+
+  // Copy code
+  const tabTexts = {
+    'tab-npx': `# Zero install. Just works.\n$ npx agentrem add "Deploy to prod" --due tomorrow --priority 2\n$ npx agentrem check\n$ npx agentrem list --json`,
+    'tab-npm': `# Install globally\n$ npm install -g agentrem\n\n# Meet your reminders\n$ agentrem quickstart`,
+    'tab-mcp': `{\n  "mcpServers": {\n    "agentrem": {\n      "command": "agentrem-mcp",\n      "args": []\n    }\n  }\n}`,
+    'tab-api': `import { add, check, list, complete } from 'agentrem';\n\nawait add("Ship feature", { due: "tomorrow", priority: 2 });\nconst due = await check();\nconst all = await list();\nawait complete(due[0].id);`,
+    'agent-block': `## Reminders (agentrem)\nYou have access to \`agentrem\` for persistent reminders across sessions.\n- Session start: \`agentrem check --type time,session --budget 800\`\n- Add: \`agentrem add "<content>" --due "<when>" --priority <1-5>\`\n- Commands: add, check, list, search, complete, snooze, stats\n- Use --json for structured output`
+  };
+
+  function copyCode(btn, id) {
+    const text = tabTexts[id] || document.getElementById(id)?.innerText || '';
+    navigator.clipboard.writeText(text).then(() => {
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy`;
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  function copyInstall(btn) {
+    navigator.clipboard.writeText('npm install -g agentrem').then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✓ Copied!';
+      setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+  }
+</script>
 </body>
 </html>
