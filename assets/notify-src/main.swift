@@ -121,8 +121,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         // else: relaunched to handle an action or URL — wait for the delegate callback
 
-        // Terminate after 10 s whether or not we handle an action
-        scheduleTimeout(seconds: 10.0)
+        // Stay alive long enough for user to interact with the notification.
+        // macOS dismisses the banner after ~5s but the notification stays in
+        // Notification Center. We keep alive for 5 minutes so tapping it later
+        // still works. The didReceive handler terminates early on action.
+        scheduleTimeout(seconds: 300.0)
     }
 
     func scheduleTimeout(seconds: Double) {
@@ -204,17 +207,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         log("didReceive action=\(response.actionIdentifier) userInfo=\(response.notification.request.content.userInfo)")
 
-        if response.actionIdentifier == "COMPLETE_REMINDER" {
+        switch response.actionIdentifier {
+        case "COMPLETE_REMINDER":
             if let reminderId = response.notification.request.content.userInfo["reminderId"] as? String,
                !reminderId.isEmpty {
                 runComplete(reminderId: reminderId)
             } else {
                 log("No reminderId in userInfo")
             }
+            completionHandler()
+            timeoutWorkItem?.cancel()
+            NSApp.terminate(nil)
+
+        case UNNotificationDefaultActionIdentifier:
+            // Default tap — macOS auto-dismisses, so re-deliver the notification
+            log("Default tap — re-delivering notification")
+            let original = response.notification.request.content
+            let newContent = UNMutableNotificationContent()
+            newContent.title = original.title
+            newContent.body = original.body
+            newContent.subtitle = original.subtitle
+            newContent.sound = nil  // Don't re-sound
+            newContent.categoryIdentifier = original.categoryIdentifier
+            newContent.userInfo = original.userInfo
+            let req = UNNotificationRequest(
+                identifier: UUID().uuidString,
+                content: newContent,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+            )
+            center.add(req) { error in
+                if let error = error {
+                    self.log("Re-deliver failed: \(error.localizedDescription)")
+                }
+            }
+            completionHandler()
+
+        default:
+            // Dismiss action (swipe away) or unknown
+            log("Dismissed or unknown action: \(response.actionIdentifier)")
+            completionHandler()
         }
-        completionHandler()
-        timeoutWorkItem?.cancel()
-        NSApp.terminate(nil)
     }
 
     // Show notification even when app is in foreground

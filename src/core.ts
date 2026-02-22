@@ -426,6 +426,7 @@ export function coreCheck(db: Database.Database, opts: CheckOptions): CheckResul
       db.prepare(
         'UPDATE reminders SET fire_count=?, last_fired=?, updated_at=? WHERE id=?',
       ).run(newFire, nowIso, nowIso, rem.id);
+      recordHistory(db, rem.id, 'fired', null, { fire_count: newFire }, 'system');
 
       if (rem.max_fires && newFire >= rem.max_fires) {
         const old = { ...rem };

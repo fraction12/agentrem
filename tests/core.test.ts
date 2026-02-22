@@ -471,6 +471,50 @@ describe('coreCheck', () => {
     expect(updated.completed_at).toBeTruthy();
   });
 
+  it('creates a fired history entry when a reminder fires', () => {
+    const rem = coreAdd(db, { content: 'Fire test', due: pastIso(1) });
+    coreCheck(db, {});
+    const entries = db
+      .prepare("SELECT * FROM history WHERE reminder_id=? AND action='fired'")
+      .all(rem.id) as any[];
+    expect(entries.length).toBe(1);
+    expect(entries[0].action).toBe('fired');
+    expect(entries[0].source).toBe('system');
+  });
+
+  it('fired history entry contains the correct fire_count', () => {
+    const rem = coreAdd(db, { content: 'Fire count test', due: pastIso(1) });
+    coreCheck(db, {});
+    const entry = db
+      .prepare("SELECT * FROM history WHERE reminder_id=? AND action='fired'")
+      .get(rem.id) as any;
+    const nd = JSON.parse(entry.new_data);
+    expect(nd.fire_count).toBe(1);
+  });
+
+  it('creates multiple fired history entries for multiple fires', () => {
+    const rem = coreAdd(db, { content: 'Multi fire', due: pastIso(1) });
+    coreCheck(db, {});
+    coreCheck(db, {});
+    coreCheck(db, {});
+    const entries = db
+      .prepare("SELECT * FROM history WHERE reminder_id=? AND action='fired' ORDER BY timestamp ASC")
+      .all(rem.id) as any[];
+    expect(entries.length).toBe(3);
+    expect(JSON.parse(entries[0].new_data).fire_count).toBe(1);
+    expect(JSON.parse(entries[1].new_data).fire_count).toBe(2);
+    expect(JSON.parse(entries[2].new_data).fire_count).toBe(3);
+  });
+
+  it('does not create a fired history entry on dry run', () => {
+    const rem = coreAdd(db, { content: 'Dry fire history', due: pastIso(1) });
+    coreCheck(db, { dryRun: true });
+    const entries = db
+      .prepare("SELECT * FROM history WHERE reminder_id=? AND action='fired'")
+      .all(rem.id) as any[];
+    expect(entries.length).toBe(0);
+  });
+
   it('deduplicates reminders triggered by multiple mechanisms', () => {
     // Create a keyword reminder that is also overdue by time
     const rem = coreAdd(db, {

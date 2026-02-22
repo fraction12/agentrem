@@ -618,11 +618,13 @@ program
           console.log(
             `${String(r.id).padStart(4)}  ${r.reminder_id.slice(0, 8).padStart(8)}  ${r.action.padStart(10)}  ${fmtDt(r.timestamp).padEnd(15)}  ${r.source || ''}`,
           );
-          // Show completion notes if present
+          // Show extra detail lines for certain actions
           if (r.new_data) {
             try {
               const nd = JSON.parse(r.new_data) as Record<string, unknown>;
-              if (nd['notes'] && typeof nd['notes'] === 'string') {
+              if (r.action === 'fired' && nd['fire_count'] !== undefined) {
+                console.log(`      Fire count: ${nd['fire_count']}`);
+              } else if (nd['notes'] && typeof nd['notes'] === 'string') {
                 console.log(`      Notes: ${truncate(nd['notes'], 80)}`);
               }
             } catch {
