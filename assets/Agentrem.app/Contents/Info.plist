@@ -14,5 +14,16 @@
   <string>APPL</string>
   <key>LSUIElement</key>
   <true/>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>agentrem</string>
+      </array>
+      <key>CFBundleURLName</key>
+      <string>com.agentrem.notifier</string>
+    </dict>
+  </array>
 </dict>
 </plist>

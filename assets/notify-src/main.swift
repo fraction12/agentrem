@@ -47,15 +47,53 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         super.init()
     }
 
+    // ── Shared logging ────────────────────────────────────────────────────────
+
+    func log(_ msg: String) {
+        let logPath = NSHomeDirectory() + "/.agentrem/logs/notify-actions.log"
+        let ts = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(ts)] \(msg)\n"
+        if let fh = FileHandle(forWritingAtPath: logPath) {
+            fh.seekToEndOfFile()
+            fh.write(line.data(using: .utf8)!)
+            fh.closeFile()
+        } else {
+            // Create parent dirs if needed
+            try? FileManager.default.createDirectory(
+                atPath: NSHomeDirectory() + "/.agentrem/logs",
+                withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: logPath, contents: line.data(using: .utf8))
+        }
+    }
+
+    // ── Run `agentrem complete <reminderId>` ──────────────────────────────────
+
+    func runComplete(reminderId: String) {
+        log("Running: agentrem complete \(reminderId)")
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/node")
+        proc.arguments = ["/opt/homebrew/lib/node_modules/agentrem/dist/index.js", "complete", reminderId]
+        proc.environment = ["HOME": NSHomeDirectory(), "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"]
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+            log("Complete exited with code \(proc.terminationStatus)")
+        } catch {
+            log("ERROR running complete: \(error.localizedDescription)")
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
 
-        // Register the "Complete ✅" action category so macOS shows the button
+        // Register the "Complete ✅" action category so macOS shows the button.
+        // .foreground ensures the app is brought to foreground on tap, making
+        // the didReceive callback fire reliably even after relaunch.
         let completeAction = UNNotificationAction(
             identifier: "COMPLETE_REMINDER",
             title: "Complete ✅",
-            options: []
+            options: [.foreground]
         )
         let category = UNNotificationCategory(
             identifier: "AGENTREM_REMINDER",
@@ -81,10 +119,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 self.postNotification()
             }
         }
-        // else: relaunched to handle an action — just wait for the delegate callback
+        // else: relaunched to handle an action or URL — wait for the delegate callback
 
-        // Terminate after 5 s whether or not we handle an action
-        scheduleTimeout(seconds: 5.0)
+        // Terminate after 10 s whether or not we handle an action
+        scheduleTimeout(seconds: 10.0)
     }
 
     func scheduleTimeout(seconds: Double) {
@@ -111,9 +149,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Attach category so the "Complete ✅" button appears
         content.categoryIdentifier = "AGENTREM_REMINDER"
 
-        // Pass reminderId so we can call `agentrem complete` when tapped
+        // Pass reminderId (and URL scheme backup) so we can call `agentrem complete`
         if let reminderId = payload.reminderId {
-            content.userInfo = ["reminderId": reminderId]
+            content.userInfo = [
+                "reminderId": reminderId,
+                "url": "agentrem://complete/\(reminderId)"
+            ]
         }
 
         let request = UNNotificationRequest(
@@ -127,9 +168,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 fputs("agentrem-notify: post error: \(error.localizedDescription)\n", stderr)
                 NSApp.terminate(nil)
             }
-            // Stay alive for 5 s to handle an immediate action tap;
+            // Stay alive for 10 s to handle an immediate action tap;
             // the timeout scheduled in applicationDidFinishLaunching covers this.
         }
+    }
+
+    // ── URL scheme handler (agentrem://complete/<reminderId>) ─────────────────
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            log("application:open URL=\(url.absoluteString)")
+            guard url.scheme == "agentrem",
+                  url.host == "complete" else {
+                log("Unrecognised URL, ignoring: \(url.absoluteString)")
+                continue
+            }
+            // Path is "/<reminderId>" — strip leading slash
+            let reminderId = url.path.hasPrefix("/")
+                ? String(url.path.dropFirst())
+                : url.path
+            guard !reminderId.isEmpty else {
+                log("URL missing reminderId: \(url.absoluteString)")
+                continue
+            }
+            runComplete(reminderId: reminderId)
+        }
+        timeoutWorkItem?.cancel()
+        NSApp.terminate(nil)
     }
 
     // ── Action handler ────────────────────────────────────────────────────────
@@ -137,18 +202,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
+        log("didReceive action=\(response.actionIdentifier) userInfo=\(response.notification.request.content.userInfo)")
+
         if response.actionIdentifier == "COMPLETE_REMINDER" {
             if let reminderId = response.notification.request.content.userInfo["reminderId"] as? String,
                !reminderId.isEmpty {
-                let proc = Process()
-                proc.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/agentrem")
-                proc.arguments = ["complete", reminderId]
-                do {
-                    try proc.run()
-                    proc.waitUntilExit()
-                } catch {
-                    fputs("agentrem-notify: failed to run agentrem complete: \(error.localizedDescription)\n", stderr)
-                }
+                runComplete(reminderId: reminderId)
+            } else {
+                log("No reminderId in userInfo")
             }
         }
         completionHandler()
