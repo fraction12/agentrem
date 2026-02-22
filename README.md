@@ -1,5 +1,12 @@
 # 🧠 agentrem — Reminders for AI Agents
 
+[![npm version](https://img.shields.io/npm/v/agentrem)](https://www.npmjs.com/package/agentrem)
+[![CI](https://github.com/fraction12/agentrem/actions/workflows/ci.yml/badge.svg)](https://github.com/fraction12/agentrem/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-292%20passing-brightgreen)](https://github.com/fraction12/agentrem)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/node/v/agentrem)](https://nodejs.org)
+[![MCP](https://img.shields.io/badge/MCP-compatible-blue)](https://modelcontextprotocol.io)
+
 Structured reminders CLI + MCP server that gives AI agents persistent, priority-aware memory with triggers, recurrence, dependencies, and full-text search.
 
 **Why?** AI agents forget between sessions. agentrem gives them a reminder system that persists across sessions, triggers on time/keywords/conditions, and fits within token budgets.
