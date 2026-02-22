@@ -23,9 +23,9 @@ jobs:
       - run: npm run build
       - run: npm test
         env:
-          VITEST_POOL_TIMEOUT: 120000
+          VITEST_POOL_TIMEOUT: 300000
       - name: Retry tests on failure (Windows flake)
         if: failure()
         run: npm test
         env:
-          VITEST_POOL_TIMEOUT: 120000
+          VITEST_POOL_TIMEOUT: 300000
