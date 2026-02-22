@@ -3,6 +3,7 @@
 
 import { Command } from 'commander';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { VERSION, PRIORITY_LABELS, AgentremError } from './types.js';
 import { initDb, getDb } from './db.js';
@@ -624,7 +625,7 @@ program
       } else {
         const dir =
           process.env['AGENTREM_DIR'] ||
-          path.join(require('node:os').homedir(), '.agentrem');
+          path.join(os.homedir(), '.agentrem');
         const ts = new Date()
           .toISOString()
           .replace(/[:.]/g, '')
@@ -750,7 +751,7 @@ program
     const dbPath =
       process.env['AGENTREM_DB'] ||
       path.join(
-        process.env['AGENTREM_DIR'] || path.join(require('node:os').homedir(), '.agentrem'),
+        process.env['AGENTREM_DIR'] || path.join(os.homedir(), '.agentrem'),
         'reminders.db',
       );
 
@@ -850,7 +851,7 @@ program
     const dbPath =
       process.env['AGENTREM_DB'] ||
       path.join(
-        process.env['AGENTREM_DIR'] || path.join(require('node:os').homedir(), '.agentrem'),
+        process.env['AGENTREM_DIR'] || path.join(os.homedir(), '.agentrem'),
         'reminders.db',
       );
 
