@@ -3,6 +3,9 @@
 // No external npm dependencies — uses only macOS-native tools.
 
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { truncate } from './date-parser.js';
 import type { Reminder } from './types.js';
 
@@ -50,12 +53,12 @@ export function _resetNotifierCache(): void {
 
 // ── Option builder (pure, fully testable) ───────────────────────────────────
 
-const PRIORITY_ICONS: Record<number, string> = {
-  1: '🔴',
-  2: '🟡',
-  3: '🔵',
-  4: '⚪',
-  5: '💤',
+const PRIORITY_TITLES: Record<number, string> = {
+  1: '⚡ Yo. This one\'s urgent.',
+  2: '👋 Hey, heads up.',
+  3: '📌 Quick reminder',
+  4: '💭 When you get a sec...',
+  5: '🌊 No rush, but...',
 };
 
 const PRIORITY_SOUNDS: Record<number, string> = {
@@ -64,26 +67,31 @@ const PRIORITY_SOUNDS: Record<number, string> = {
   3: 'Pop',
 };
 
-/** Format an overdue duration as a human-readable string. */
+/** Format an overdue duration as a fun, cheeky human-readable string. */
 export function formatOverdue(diffMs: number): string {
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 60) return `${mins}m overdue`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h overdue`;
-  const days = Math.floor(hours / 24);
-  return `${days}d overdue`;
+  const mins = diffMs / 60_000;
+  const hours = diffMs / 3_600_000;
+  const days = diffMs / 86_400_000;
+
+  if (mins < 2) return 'just now';
+  if (mins < 30) return `${Math.floor(mins)} min ago`;
+  if (hours < 1) return 'about an hour, no biggie';
+  if (hours < 3) return 'been a couple hours...';
+  if (hours < 6) return 'this has been waiting a while';
+  if (hours < 24) return 'so... you forgot about this one 😅';
+  if (hours < 48) return "it's been a whole day, dude";
+  return `I've been here for ${Math.floor(days)} days. just saying.`;
 }
 
 /** Build notification options from a reminder. Pure function — no side effects. */
 export function buildNotifyOpts(rem: Reminder, now: number = Date.now()): NotifyOpts {
-  const icon = PRIORITY_ICONS[rem.priority] ?? '🔵';
-  const title = `${icon} agentrem`;
+  const title = PRIORITY_TITLES[rem.priority] ?? '📌 Quick reminder';
 
-  let subtitle = 'due now';
+  let subtitle = 'due now ⏰';
   if (rem.trigger_at) {
     const triggerMs = new Date(rem.trigger_at).getTime();
     const diffMs = now - triggerMs;
-    if (diffMs >= 60_000) {
+    if (diffMs > 0) {
       subtitle = formatOverdue(diffMs);
     }
   }
@@ -92,6 +100,19 @@ export function buildNotifyOpts(rem: Reminder, now: number = Date.now()): Notify
   const sound = PRIORITY_SOUNDS[rem.priority]; // undefined for P4/P5
 
   return { title, subtitle, message, sound, group: 'com.agentrem.watch' };
+}
+
+// ── App icon path ────────────────────────────────────────────────────────────
+
+/** Resolve the bundled app icon path. Returns undefined if the file doesn't exist. */
+function resolveAppIcon(): string | undefined {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const iconPath = resolve(__dirname, '../assets/icon.png');
+    return existsSync(iconPath) ? iconPath : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // ── Dispatch ────────────────────────────────────────────────────────────────
@@ -117,6 +138,9 @@ function sendViaTerminalNotifier(opts: NotifyOpts): void {
   const args = ['-title', opts.title, '-subtitle', opts.subtitle, '-message', opts.message];
   if (opts.sound) args.push('-sound', opts.sound);
   if (opts.group) args.push('-group', opts.group);
+
+  const iconPath = resolveAppIcon();
+  if (iconPath) args.push('-appIcon', iconPath);
 
   try {
     execFileSync('terminal-notifier', args, { stdio: 'pipe' });

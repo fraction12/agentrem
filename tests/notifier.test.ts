@@ -17,6 +17,9 @@ vi.mock('node:child_process', () => {
   };
 });
 
+// ── Mock node:fs so icon check always returns false in tests ───────────────
+vi.mock('node:fs', () => ({ existsSync: vi.fn(() => false) }));
+
 import {
   buildNotifyOpts,
   formatOverdue,
@@ -66,72 +69,112 @@ function makeReminder(overrides: Partial<Reminder> = {}): Reminder {
 // ── formatOverdue ──────────────────────────────────────────────────────────
 
 describe('formatOverdue', () => {
-  it('returns minutes for <60 min', () => {
-    expect(formatOverdue(5 * 60_000)).toBe('5m overdue');
+  it('returns "just now" for 0ms', () => {
+    expect(formatOverdue(0)).toBe('just now');
   });
 
-  it('returns 1m for exactly 1 minute', () => {
-    expect(formatOverdue(60_000)).toBe('1m overdue');
+  it('returns "just now" for < 2 minutes', () => {
+    expect(formatOverdue(60_000)).toBe('just now');
   });
 
-  it('returns 59m at the edge before 1 hour', () => {
-    expect(formatOverdue(59 * 60_000)).toBe('59m overdue');
+  it('returns "just now" at 1 min 59s', () => {
+    expect(formatOverdue(119_000)).toBe('just now');
   });
 
-  it('returns hours for >=60 min', () => {
-    expect(formatOverdue(60 * 60_000)).toBe('1h overdue');
+  it('returns "2 min ago" at exactly 2 minutes', () => {
+    expect(formatOverdue(2 * 60_000)).toBe('2 min ago');
   });
 
-  it('returns 3h for 3 hours', () => {
-    expect(formatOverdue(3 * 60 * 60_000)).toBe('3h overdue');
+  it('returns "X min ago" for 2-30 min range', () => {
+    expect(formatOverdue(5 * 60_000)).toBe('5 min ago');
+    expect(formatOverdue(15 * 60_000)).toBe('15 min ago');
+    expect(formatOverdue(29 * 60_000)).toBe('29 min ago');
   });
 
-  it('returns 23h at the edge before 1 day', () => {
-    expect(formatOverdue(23 * 60 * 60_000)).toBe('23h overdue');
+  it('returns "about an hour, no biggie" at 30 min', () => {
+    expect(formatOverdue(30 * 60_000)).toBe('about an hour, no biggie');
   });
 
-  it('returns days for >=24 hours', () => {
-    expect(formatOverdue(24 * 60 * 60_000)).toBe('1d overdue');
+  it('returns "about an hour, no biggie" for 30-60 min range', () => {
+    expect(formatOverdue(45 * 60_000)).toBe('about an hour, no biggie');
+    expect(formatOverdue(59 * 60_000)).toBe('about an hour, no biggie');
   });
 
-  it('returns 7d for a week', () => {
-    expect(formatOverdue(7 * 24 * 60 * 60_000)).toBe('7d overdue');
+  it('returns "been a couple hours..." at 1 hour', () => {
+    expect(formatOverdue(60 * 60_000)).toBe('been a couple hours...');
+  });
+
+  it('returns "been a couple hours..." for 1-3h range', () => {
+    expect(formatOverdue(2 * 60 * 60_000)).toBe('been a couple hours...');
+  });
+
+  it('returns "this has been waiting a while" at 3 hours', () => {
+    expect(formatOverdue(3 * 60 * 60_000)).toBe('this has been waiting a while');
+  });
+
+  it('returns "this has been waiting a while" for 3-6h range', () => {
+    expect(formatOverdue(5 * 60 * 60_000)).toBe('this has been waiting a while');
+  });
+
+  it('returns the 😅 message at 6 hours', () => {
+    expect(formatOverdue(6 * 60 * 60_000)).toBe('so... you forgot about this one 😅');
+  });
+
+  it('returns the 😅 message for 6-24h range', () => {
+    expect(formatOverdue(12 * 60 * 60_000)).toBe('so... you forgot about this one 😅');
+    expect(formatOverdue(23 * 60 * 60_000)).toBe('so... you forgot about this one 😅');
+  });
+
+  it('returns "it\'s been a whole day, dude" at 24 hours', () => {
+    expect(formatOverdue(24 * 60 * 60_000)).toBe("it's been a whole day, dude");
+  });
+
+  it('returns "it\'s been a whole day, dude" for 24-48h range', () => {
+    expect(formatOverdue(36 * 60 * 60_000)).toBe("it's been a whole day, dude");
+  });
+
+  it('returns "X days" message at 48 hours', () => {
+    expect(formatOverdue(48 * 60 * 60_000)).toBe("I've been here for 2 days. just saying.");
+  });
+
+  it('returns "X days" message for 48h+ range', () => {
+    expect(formatOverdue(7 * 24 * 60 * 60_000)).toBe("I've been here for 7 days. just saying.");
   });
 });
 
 // ── buildNotifyOpts ─────────────────────────────────────────────────────────
 
 describe('buildNotifyOpts', () => {
-  // ── Title with priority icon ────────────────────────────────────────────
+  // ── Title per priority ──────────────────────────────────────────────────
 
-  it('title includes 🔴 for priority 1', () => {
+  it('P1 title is cheeky urgent message', () => {
     const rem = makeReminder({ priority: 1 });
-    expect(buildNotifyOpts(rem).title).toBe('🔴 agentrem');
+    expect(buildNotifyOpts(rem).title).toBe("⚡ Yo. This one's urgent.");
   });
 
-  it('title includes 🟡 for priority 2', () => {
+  it('P2 title is heads up message', () => {
     const rem = makeReminder({ priority: 2 });
-    expect(buildNotifyOpts(rem).title).toBe('🟡 agentrem');
+    expect(buildNotifyOpts(rem).title).toBe('👋 Hey, heads up.');
   });
 
-  it('title includes 🔵 for priority 3 (normal)', () => {
+  it('P3 title is quick reminder', () => {
     const rem = makeReminder({ priority: 3 });
-    expect(buildNotifyOpts(rem).title).toBe('🔵 agentrem');
+    expect(buildNotifyOpts(rem).title).toBe('📌 Quick reminder');
   });
 
-  it('title includes ⚪ for priority 4 (low)', () => {
+  it('P4 title is "when you get a sec"', () => {
     const rem = makeReminder({ priority: 4 });
-    expect(buildNotifyOpts(rem).title).toBe('⚪ agentrem');
+    expect(buildNotifyOpts(rem).title).toBe('💭 When you get a sec...');
   });
 
-  it('title includes 💤 for priority 5 (someday)', () => {
+  it('P5 title is "no rush"', () => {
     const rem = makeReminder({ priority: 5 });
-    expect(buildNotifyOpts(rem).title).toBe('💤 agentrem');
+    expect(buildNotifyOpts(rem).title).toBe('🌊 No rush, but...');
   });
 
-  it('title falls back to 🔵 for unexpected priority', () => {
+  it('title falls back to 📌 Quick reminder for unexpected priority', () => {
     const rem = makeReminder({ priority: 99 });
-    expect(buildNotifyOpts(rem).title).toBe('🔵 agentrem');
+    expect(buildNotifyOpts(rem).title).toBe('📌 Quick reminder');
   });
 
   // ── Sound mapping ───────────────────────────────────────────────────────
@@ -163,44 +206,44 @@ describe('buildNotifyOpts', () => {
 
   // ── Subtitle (overdue calculation) ──────────────────────────────────────
 
-  it('subtitle is "due now" when trigger_at is null', () => {
+  it('subtitle is "due now ⏰" when trigger_at is null', () => {
     const rem = makeReminder({ trigger_at: null });
-    expect(buildNotifyOpts(rem).subtitle).toBe('due now');
+    expect(buildNotifyOpts(rem).subtitle).toBe('due now ⏰');
   });
 
-  it('subtitle is "due now" when less than 1 minute overdue', () => {
+  it('subtitle is "just now" when less than 2 minutes overdue', () => {
     const now = Date.now();
     const dueAt = new Date(now - 30_000); // 30s ago
     const rem = makeReminder({ trigger_at: dtToIso(dueAt) });
-    expect(buildNotifyOpts(rem, now).subtitle).toBe('due now');
+    expect(buildNotifyOpts(rem, now).subtitle).toBe('just now');
   });
 
-  it('subtitle is "due now" when reminder is in the future', () => {
+  it('subtitle is "due now ⏰" when reminder is in the future', () => {
     const now = Date.now();
     const dueAt = new Date(now + 5 * 60_000); // 5 min ahead
     const rem = makeReminder({ trigger_at: dtToIso(dueAt) });
-    expect(buildNotifyOpts(rem, now).subtitle).toBe('due now');
+    expect(buildNotifyOpts(rem, now).subtitle).toBe('due now ⏰');
   });
 
-  it('subtitle shows minutes when >= 1 minute overdue', () => {
+  it('subtitle shows "X min ago" when overdue by minutes', () => {
     const now = Date.now();
     const dueAt = new Date(now - 25 * 60_000);
     const rem = makeReminder({ trigger_at: dtToIso(dueAt) });
-    expect(buildNotifyOpts(rem, now).subtitle).toBe('25m overdue');
+    expect(buildNotifyOpts(rem, now).subtitle).toBe('25 min ago');
   });
 
-  it('subtitle shows hours when >= 60 minutes overdue', () => {
+  it('subtitle shows fun message when hours overdue', () => {
     const now = Date.now();
     const dueAt = new Date(now - 3 * 60 * 60_000);
     const rem = makeReminder({ trigger_at: dtToIso(dueAt) });
-    expect(buildNotifyOpts(rem, now).subtitle).toBe('3h overdue');
+    expect(buildNotifyOpts(rem, now).subtitle).toBe('this has been waiting a while');
   });
 
-  it('subtitle shows days when >= 24 hours overdue', () => {
+  it('subtitle shows days message when 2+ days overdue', () => {
     const now = Date.now();
     const dueAt = new Date(now - 2 * 24 * 60 * 60_000);
     const rem = makeReminder({ trigger_at: dtToIso(dueAt) });
-    expect(buildNotifyOpts(rem, now).subtitle).toBe('2d overdue');
+    expect(buildNotifyOpts(rem, now).subtitle).toBe("I've been here for 2 days. just saying.");
   });
 
   // ── Message ─────────────────────────────────────────────────────────────
@@ -286,8 +329,8 @@ describe('sendNotification', () => {
 
   it('calls terminal-notifier with correct args', () => {
     const opts: NotifyOpts = {
-      title: '🔴 agentrem',
-      subtitle: '5m overdue',
+      title: "⚡ Yo. This one's urgent.",
+      subtitle: '5 min ago',
       message: 'Deploy hotfix',
       sound: 'Hero',
       group: 'com.agentrem.watch',
@@ -297,11 +340,12 @@ describe('sendNotification', () => {
     expect(vi.mocked(execFileSync)).toHaveBeenCalledWith(
       'terminal-notifier',
       [
-        '-title', '🔴 agentrem',
-        '-subtitle', '5m overdue',
+        '-title', "⚡ Yo. This one's urgent.",
+        '-subtitle', '5 min ago',
         '-message', 'Deploy hotfix',
         '-sound', 'Hero',
         '-group', 'com.agentrem.watch',
+        // no -appIcon because existsSync is mocked to false
       ],
       { stdio: 'pipe' },
     );
@@ -309,8 +353,8 @@ describe('sendNotification', () => {
 
   it('omits -sound when sound is undefined', () => {
     const opts: NotifyOpts = {
-      title: '⚪ agentrem',
-      subtitle: 'due now',
+      title: '💭 When you get a sec...',
+      subtitle: 'due now ⏰',
       message: 'Low priority',
       group: 'com.agentrem.watch',
     };
@@ -332,13 +376,13 @@ describe('sendNotification', () => {
 
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const opts: NotifyOpts = {
-      title: '🔵 agentrem',
-      subtitle: 'due now',
+      title: '📌 Quick reminder',
+      subtitle: 'due now ⏰',
       message: 'Test',
     };
     sendNotification(opts);
 
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('agentrem'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Quick reminder'));
     consoleSpy.mockRestore();
     Object.defineProperty(process, 'platform', { value: 'darwin' });
   });
