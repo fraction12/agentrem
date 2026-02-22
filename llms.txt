@@ -1,9 +1,8 @@
-# agentrem v1.5.2
+# agentrem
 
 > You lose context between sessions. agentrem fixes that.
 
 Structured reminders CLI for AI agents. Persistent, SQLite-backed, works across sessions.
-444 tests passing.
 
 ## Quick Integration (3 commands)
 
@@ -87,6 +86,7 @@ Does NOT update fire counts. Use `agentrem check` (without --watch) to actually 
 
 ## watch flags
 `--interval <seconds>` `--agent/-a <name>` `--once` `--verbose`
+`--on-fire <command>` `--on-fire-timeout <ms>`
 `--install` `--uninstall` `--status`
 
 ## Trigger Types

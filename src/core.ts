@@ -473,9 +473,12 @@ export function coreList(db: Database.Database, opts: ListOptions): Reminder[] {
   if (opts.all) {
     // no status filter
   } else if (opts.status) {
-    const statuses = opts.status.split(',').map((s) => s.trim());
-    conditions.push(`status IN (${statuses.map(() => '?').join(',')})`);
-    params.push(...statuses);
+    const statusStr = opts.status.trim().toLowerCase();
+    if (statusStr !== 'all') {
+      const statuses = opts.status.split(',').map((s) => s.trim());
+      conditions.push(`status IN (${statuses.map(() => '?').join(',')})`);
+      params.push(...statuses);
+    }
   } else {
     conditions.push("status = 'active'");
   }
@@ -551,17 +554,19 @@ export interface SearchOptions {
 
 export function coreSearch(db: Database.Database, opts: SearchOptions): Reminder[] {
   const limit = opts.limit || 10;
-  const statuses = opts.status ? opts.status.split(',').map((s) => s.trim()) : ['active'];
+  const statusStr = opts.status?.trim().toLowerCase();
+  const filterAll = statusStr === 'all';
+  const statuses = filterAll ? [] : (opts.status ? opts.status.split(',').map((s) => s.trim()) : ['active']);
 
-  const placeholders = statuses.map(() => '?').join(',');
+  const statusClause = filterAll ? '' : `AND r.status IN (${statuses.map(() => '?').join(',')})`;
   return db
     .prepare(
       `SELECT r.* FROM reminders_fts f
        JOIN reminders r ON r.rowid = f.rowid
-       WHERE reminders_fts MATCH ? AND r.status IN (${placeholders})
+       WHERE reminders_fts MATCH ? ${statusClause}
        ORDER BY rank LIMIT ?`,
     )
-    .all(opts.query, ...statuses, limit) as Reminder[];
+    .all('"' + opts.query.replace(/"/g, '""') + '"', ...statuses, limit) as Reminder[];
 }
 
 // ── Complete ──────────────────────────────────────────────────────────────

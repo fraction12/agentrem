@@ -1,6 +1,6 @@
-# agentrem v1.5.2 — Full API Reference
+# agentrem — Full API Reference
 
-444 tests passing. SQLite-backed structured reminders for AI agents.
+SQLite-backed structured reminders for AI agents.
 
 ## Installation
 
@@ -536,6 +536,8 @@ Background daemon that polls for due reminders and fires native OS notifications
 | `--install` | Install as OS background service (launchd on macOS, systemd on Linux) |
 | `--uninstall` | Remove the background service |
 | `--status` | Show service status |
+| `--on-fire <command>` | Execute shell command when a reminder fires (env vars: AGENTREM_ID, AGENTREM_CONTENT, AGENTREM_PRIORITY, AGENTREM_TAGS, AGENTREM_CONTEXT, AGENTREM_DUE, AGENTREM_FIRE_COUNT) |
+| `--on-fire-timeout <ms>` | Timeout for on-fire command (default: 5000) |
 
 ```bash
 # Run in foreground
@@ -580,6 +582,25 @@ agentrem watch --status                  # Show installed/running status
    File:     /Users/you/Library/LaunchAgents/com.agentrem.watch.plist
    Detail:   launchctl: ...
 ```
+
+#### watch --on-fire (hooks)
+
+Execute a shell command whenever a reminder fires. Reminder data is passed via environment variables (never interpolated into the command string — safe from shell injection).
+
+```bash
+# Forward to OpenClaw for instant Telegram delivery
+agentrem watch --on-fire 'openclaw system event --text "🔔 Reminder: $AGENTREM_CONTENT (P$AGENTREM_PRIORITY)" --mode now'
+
+# Webhook
+agentrem watch --on-fire 'curl -X POST -d "{\"text\":\"$AGENTREM_CONTENT\"}" https://hooks.example.com/reminder'
+
+# Custom timeout (default 5s)
+agentrem watch --on-fire 'my-slow-script.sh' --on-fire-timeout 15000
+```
+
+- **Fire-and-forget:** errors logged to `~/.agentrem/logs/on-fire.log`, never crash the watcher
+- **Sequential:** multiple reminders process one at a time
+- **Env vars:** `AGENTREM_ID`, `AGENTREM_CONTENT`, `AGENTREM_PRIORITY`, `AGENTREM_TAGS`, `AGENTREM_CONTEXT`, `AGENTREM_DUE`, `AGENTREM_FIRE_COUNT`
 
 ---
 

@@ -61,7 +61,7 @@
     "type": "git",
     "url": "https://github.com/fraction12/agentrem.git"
   },
-  "homepage": "https://github.com/fraction12/agentrem",
+  "homepage": "https://fraction12.github.io/agentrem",
   "license": "MIT",
   "engines": {
     "node": ">=18"

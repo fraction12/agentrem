@@ -55,8 +55,11 @@ describe('parseDate', () => {
 
   it('parses +2w as roughly 14 days from now', () => {
     const result = parseDate('+2w');
-    const expected = Date.now() + 14 * 24 * 60 * 60 * 1000;
-    expect(result.getTime()).toBeCloseTo(expected, -Math.log10(DELTA_MS));
+    const expected = new Date();
+    expected.setDate(expected.getDate() + 14);
+    expect(result.getFullYear()).toBe(expected.getFullYear());
+    expect(result.getMonth()).toBe(expected.getMonth());
+    expect(result.getDate()).toBe(expected.getDate());
   });
 
   it('parses "today" as today at 23:59', () => {

@@ -1,7 +1,6 @@
 # 🔔 agentrem
 
 [![npm version](https://img.shields.io/npm/v/agentrem)](https://www.npmjs.com/package/agentrem)
-[![Tests](https://img.shields.io/badge/tests-444%20passing-brightgreen)](https://github.com/fraction12/agentrem)
 [![CI](https://github.com/fraction12/agentrem/actions/workflows/ci.yml/badge.svg)](https://github.com/fraction12/agentrem/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/node/v/agentrem)](https://nodejs.org)
@@ -206,9 +205,9 @@ Reminder data is passed as environment variables (no shell injection — data ne
 - **Sequential** — multiple reminders process one at a time
 - **Timeout:** 5 seconds default, configurable with `--on-fire-timeout <ms>`
 
-**Example: Forward to OpenClaw (Telegram delivery):**
+**Example: Forward to OpenClaw (instant Telegram delivery):**
 ```bash
-agentrem watch --on-fire 'openclaw cron add --at +0s --message "🔔 Reminder: $AGENTREM_CONTENT" --delete-after-run --best-effort-deliver'
+agentrem watch --on-fire 'openclaw system event --text "🔔 Reminder: $AGENTREM_CONTENT (P$AGENTREM_PRIORITY)" --mode now'
 ```
 
 ---
