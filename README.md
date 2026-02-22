@@ -1,7 +1,7 @@
 # 🔔 agentrem
 
 [![npm version](https://img.shields.io/npm/v/agentrem)](https://www.npmjs.com/package/agentrem)
-[![Tests](https://img.shields.io/badge/tests-392%20passing-brightgreen)](https://github.com/fraction12/agentrem)
+[![Tests](https://img.shields.io/badge/tests-444%20passing-brightgreen)](https://github.com/fraction12/agentrem)
 [![CI](https://github.com/fraction12/agentrem/actions/workflows/ci.yml/badge.svg)](https://github.com/fraction12/agentrem/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/node/v/agentrem)](https://nodejs.org)
@@ -36,6 +36,7 @@ agentrem add "<content>" --due "<when>" --priority <1-5> --tags "<tags>"
 ### Key commands:
 - `agentrem add` — create a reminder
 - `agentrem check` — see what's triggered/due
+- `agentrem check --watch` — block until next reminder fires
 - `agentrem list` — list all active reminders
 - `agentrem search <query>` — full-text search
 - `agentrem complete <id>` — mark done
@@ -73,7 +74,7 @@ No global install? Use `npx`:
 }
 ```
 
-Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `check_reminders` · `list_reminders` · `search_reminders` · `complete_reminder` · `snooze_reminder` · `edit_reminder` · `delete_reminder` · `get_stats` · `undo_change` · `export_reminders` · `import_reminders`
+Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `check_reminders` · `list_reminders` · `search_reminders` · `complete_reminder` · `snooze_reminder` · `edit_reminder` · `delete_reminder` · `get_stats` · `get_history` · `undo_change` · `garbage_collect` · `export_reminders` · `import_reminders`
 
 ---
 
@@ -81,13 +82,14 @@ Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `c
 
 | Command | Key Flags | Example |
 |---------|-----------|---------|
-| `add <content>` | `--due` `--priority` `--tags` `--trigger` `--recur` `--agent` `--dry-run` | `agentrem add "PR review" --due "+4h" --priority 2` |
-| `check` | `--type` `--text` `--budget` `--format` `--json` `--escalate` `--agent` | `agentrem check --type time,session --budget 800 --json` |
-| `list` | `--status` `--priority` `--tag` `--due` `--limit` `--json` `--all` `--agent` | `agentrem list --priority 1,2 --json` |
+| `add <content>` | `--due` `--priority` `--tags` `--trigger` `--recur` `--agent` `--context` `--category` `--depends-on` `--dry-run` | `agentrem add "PR review" --due "+4h" --priority 2` |
+| `check` | `--type` `--text` `--budget` `--format` `--json` `--escalate` `--agent` `--dry-run` | `agentrem check --type time,session --budget 800 --json` |
+| `check --watch` | `--timeout` `--json` `--type` `--agent` | `agentrem check --watch --timeout 300 --json` |
+| `list` | `--status` `--priority` `--tag` `--due` `--limit` `--json` `--all` `--agent` `--category` `--trigger` `--format` | `agentrem list --priority 1,2 --json` |
 | `search <query>` | `--status` `--limit` `--json` | `agentrem search "deploy staging" --json` |
 | `complete <id>` | `--notes` | `agentrem complete abc12345` |
 | `snooze <id>` | `--until` `--for` | `agentrem snooze abc12345 --for 2h` |
-| `edit <id>` | `--content` `--due` `--priority` `--tags` `--add-tags` `--remove-tags` | `agentrem edit abc12345 --priority 1` |
+| `edit <id>` | `--content` `--due` `--priority` `--tags` `--add-tags` `--remove-tags` `--context` `--category` `--agent` | `agentrem edit abc12345 --priority 1` |
 | `delete [id]` | `--permanent` `--status` `--older-than` | `agentrem delete abc12345 --permanent` |
 | `stats` | `--json` | `agentrem stats --json` |
 | `history [id]` | `--limit` `--json` | `agentrem history --limit 20 --json` |
@@ -149,6 +151,39 @@ Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `c
 
 ---
 
+## check --watch: Blocking Mode
+
+`agentrem check --watch` blocks until the next due reminder fires. Useful for scripting, pipelines, or pausing an agent until something needs attention.
+
+```bash
+# Wait indefinitely for next reminder
+agentrem check --watch
+
+# Exit 1 if nothing fires within 5 minutes
+agentrem check --watch --timeout 300
+
+# Get the full reminder as JSON when it fires
+agentrem check --watch --json
+
+# Filter by trigger type and agent
+agentrem check --watch --type time,heartbeat --agent jarvis --timeout 60
+```
+
+**Exit codes:** `0` = reminder found (or SIGINT/SIGTERM), `1` = timeout elapsed with no reminder.
+
+> **Note:** `--watch` does **not** update fire counts. Use a regular `agentrem check` after to actually mark reminders as fired.
+
+**Poll-then-act pattern:**
+```bash
+if agentrem check --watch --timeout 120 --json > /tmp/due.json; then
+  echo "Reminder fired:"
+  cat /tmp/due.json
+  agentrem check   # mark as fired
+fi
+```
+
+---
+
 ## Background Watcher
 
 `agentrem watch` polls for due reminders and fires native OS notifications.
@@ -183,7 +218,51 @@ On macOS, agentrem ships a bundled Swift app (`Agentrem.app`) so notifications a
 
 **Backend fallback order:** `Agentrem.app` → `terminal-notifier` → `osascript` → `console`
 
-Notifications include a **Complete** button and cheeky overdue messages. To rebuild the Swift app: `npm run build:notify`
+Notifications include a **Complete** button on macOS and cheeky overdue messages. To rebuild the Swift app: `npm run build:notify`
+
+---
+
+## Programmatic API
+
+Use agentrem directly from JavaScript/TypeScript — no CLI subprocess needed.
+
+```bash
+npm install agentrem
+```
+
+```typescript
+import { add, check, list, complete, snooze, search, stats } from 'agentrem';
+import type { Reminder } from 'agentrem';
+
+// Add a reminder
+const rem = await add('Review PR #42', { due: 'tomorrow', priority: 2, tags: 'pr,review' });
+
+// Check for triggered reminders (session start pattern)
+const { included, totalTriggered } = await check({ type: 'time,session', budget: 800 });
+for (const r of included) {
+  console.log(`[P${r.priority}] ${r.content}`);
+}
+
+// List active reminders
+const reminders = await list({ limit: 20 });
+
+// Complete a reminder
+const done = await complete(rem.id, 'Reviewed and merged');
+
+// Snooze a reminder
+const snoozed = await snooze(rem.id, { for: '2h' });
+
+// Full-text search
+const results = await search('deploy staging');
+
+// Get statistics
+const s = await stats();
+console.log(`${s.totalActive} active, ${s.overdue} overdue`);
+```
+
+**All API functions are async and return full `Reminder` objects.** The database is auto-initialized on first call (no manual `init` needed).
+
+See `llms-full.txt` for complete type signatures and all options.
 
 ---
 
@@ -197,6 +276,7 @@ agentrem check --json   # structured output your agent can parse; memory.md can'
 - **Persistent across sessions** — SQLite-backed, survives restarts, not just in-context notes
 - **Priority-aware + token budgets** — `check --budget 800` fits within any context window without overflow
 - **Triggerable** — time, keyword, condition, session, heartbeat triggers; not just static lists
+- **Blocking watch mode** — `check --watch` lets agents pause until something needs attention
 - **Agent-native** — `--json` everywhere, `--agent` namespacing, MCP server for chat clients
 
 ---

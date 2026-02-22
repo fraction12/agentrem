@@ -218,8 +218,8 @@
     <h1><span>agentrem</span></h1>
     <p class="hero-tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
     <div class="badges">
-      <span class="badge"><span class="dot dot-amber"></span>v1.5.0</span>
-      <span class="badge"><span class="dot dot-green"></span><span id="counter-413">413</span> tests passing</span>
+      <span class="badge"><span class="dot dot-amber"></span>v1.5.2</span>
+      <span class="badge"><span class="dot dot-green"></span><span id="counter-444">444</span> tests passing</span>
       <span class="badge"><span class="dot dot-blue"></span>MIT License</span>
       <span class="badge"><span class="dot dot-purple"></span>MCP Compatible</span>
     </div>
@@ -311,12 +311,19 @@
             Copy
           </button>
         </div>
-        <pre><code>import { add, check, list, complete } from <span class="token-string">'agentrem'</span>;
+        <pre><code>import { add, check, list, complete, snooze, search, stats } from <span class="token-string">'agentrem'</span>;
 
-await add(<span class="token-string">"Ship feature"</span>, { due: <span class="token-string">"tomorrow"</span>, priority: 2 });
-const due = await check();
-const all = await list();
-await complete(due[0].id);</code></pre>
+<span class="token-comment">// Add a reminder</span>
+const rem = await add(<span class="token-string">"Ship feature"</span>, { due: <span class="token-string">"tomorrow"</span>, priority: 2 });
+
+<span class="token-comment">// Check for due reminders (session start)</span>
+const { included } = await check({ type: <span class="token-string">"time,session"</span>, budget: 800 });
+
+<span class="token-comment">// Complete, snooze, search, stats</span>
+await complete(rem.id, <span class="token-string">"Done!"</span>);
+await snooze(rem.id, { for: <span class="token-string">"2h"</span> });
+const results = await search(<span class="token-string">"deploy"</span>);
+const s = await stats();</code></pre>
       </div>
     </div>
   </section>
@@ -352,8 +359,8 @@ await complete(due[0].id);</code></pre>
       </div>
       <div class="feature-card">
         <span class="feature-icon">⏰</span>
-        <div class="feature-title">Background Watcher</div>
-        <div class="feature-desc">Daemon mode with <code>--install</code>. Checks every 30s, survives reboots.</div>
+        <div class="feature-title">Watch &amp; Block</div>
+        <div class="feature-desc">Daemon mode with <code>--install</code>. Or use <code>check --watch</code> to block until next reminder fires.</div>
       </div>
       <div class="feature-card">
         <span class="feature-icon">🔌</span>
@@ -389,6 +396,7 @@ await complete(due[0].id);</code></pre>
 You have access to `agentrem` for persistent reminders across sessions.
 - Session start: `agentrem check --type time,session --budget 800`
 - Add: `agentrem add "&lt;content&gt;" --due "&lt;when&gt;" --priority &lt;1-5&gt;`
+- Block until next reminder: `agentrem check --watch --timeout 60`
 - Commands: add, check, list, search, complete, snooze, stats
 - Use --json for structured output</code></pre>
       </div>
@@ -434,13 +442,15 @@ You have access to `agentrem` for persistent reminders across sessions.
     <p class="section-sub">Use plain English for scheduling — agentrem understands it all.</p>
     <div class="dates-list">
       <span class="date-chip">now</span>
+      <span class="date-chip">today</span>
       <span class="date-chip">tomorrow</span>
       <span class="date-chip">in 5 minutes</span>
       <span class="date-chip">in 2 hours</span>
       <span class="date-chip">in 3 days</span>
-      <span class="date-chip">next monday</span>
-      <span class="date-chip">end of week</span>
+      <span class="date-chip">+1w</span>
+      <span class="date-chip">+30m</span>
       <span class="date-chip">2026-03-01</span>
+      <span class="date-chip">2026-03-01T09:00:00</span>
     </div>
   </section>
 </div>
@@ -516,8 +526,8 @@ You have access to `agentrem` for persistent reminders across sessions.
     'tab-npx': `# Zero install. Just works.\n$ npx agentrem add "Deploy to prod" --due tomorrow --priority 2\n$ npx agentrem check\n$ npx agentrem list --json`,
     'tab-npm': `# Install globally\n$ npm install -g agentrem\n\n# Meet your reminders\n$ agentrem quickstart`,
     'tab-mcp': `{\n  "mcpServers": {\n    "agentrem": {\n      "command": "agentrem-mcp",\n      "args": []\n    }\n  }\n}`,
-    'tab-api': `import { add, check, list, complete } from 'agentrem';\n\nawait add("Ship feature", { due: "tomorrow", priority: 2 });\nconst due = await check();\nconst all = await list();\nawait complete(due[0].id);`,
-    'agent-block': `## Reminders (agentrem)\nYou have access to \`agentrem\` for persistent reminders across sessions.\n- Session start: \`agentrem check --type time,session --budget 800\`\n- Add: \`agentrem add "<content>" --due "<when>" --priority <1-5>\`\n- Commands: add, check, list, search, complete, snooze, stats\n- Use --json for structured output`
+    'tab-api': `import { add, check, list, complete, snooze, search, stats } from 'agentrem';\n\n// Add a reminder\nconst rem = await add("Ship feature", { due: "tomorrow", priority: 2 });\n\n// Check for due reminders (session start)\nconst { included } = await check({ type: "time,session", budget: 800 });\n\n// Complete, snooze, search, stats\nawait complete(rem.id, "Done!");\nawait snooze(rem.id, { for: "2h" });\nconst results = await search("deploy");\nconst s = await stats();`,
+    'agent-block': `## Reminders (agentrem)\nYou have access to \`agentrem\` for persistent reminders across sessions.\n- Session start: \`agentrem check --type time,session --budget 800\`\n- Add: \`agentrem add "<content>" --due "<when>" --priority <1-5>\`\n- Block until next reminder: \`agentrem check --watch --timeout 60\`\n- Commands: add, check, list, search, complete, snooze, stats\n- Use --json for structured output`
   };
 
   function copyCode(btn, id) {
@@ -569,7 +579,7 @@ You have access to `agentrem` for persistent reminders across sessions.
   }
 
   /* ── COUNTER ANIMATION ── */
-  var counterEl = document.getElementById('counter-413');
+  var counterEl = document.getElementById('counter-444');
   if (counterEl) {
     function animateCounter(el, target, duration) {
       if (el._counted) return;
@@ -586,12 +596,12 @@ You have access to `agentrem` for persistent reminders across sessions.
     if (!prefersReduced && 'IntersectionObserver' in window) {
       var cntObs = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
-          if (entry.isIntersecting) { animateCounter(counterEl, 413, 1500); cntObs.unobserve(entry.target); }
+          if (entry.isIntersecting) { animateCounter(counterEl, 444, 1500); cntObs.unobserve(entry.target); }
         });
       }, { threshold: 0.5 });
       cntObs.observe(counterEl.closest('.badge') || counterEl);
     } else {
-      animateCounter(counterEl, 413, 1500);
+      animateCounter(counterEl, 444, 1500);
     }
   }
 
