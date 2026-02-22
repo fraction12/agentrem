@@ -559,7 +559,7 @@ agentrem watch --status                  # Show installed/running status
 
 - Runs check with types `time,heartbeat,session,condition` and escalation on every tick
 - Per-reminder **dedup cooldown**: once notified, won't fire again for 5 minutes (configurable via `--cooldown`)
-- **Time triggers fire once by default** (`max_fires=1`), then auto-complete. Keyword/session/heartbeat triggers fire unlimited.
+- **Time triggers notify once by default** (`max_fires=1`). After firing, the reminder stays active until explicitly completed via `agentrem complete` or the macOS ✅ button. Keyword/session/heartbeat triggers notify unlimited times.
 - Handles SIGINT/SIGTERM for clean shutdown
 - First check runs immediately on start
 

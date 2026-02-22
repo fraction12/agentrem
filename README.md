@@ -109,7 +109,7 @@ Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `c
 
 | Type | Fires when... | Key flags |
 |------|--------------|-----------|
-| `time` | Due datetime is reached | `--due` (fires once by default, use `--max-fires` or `--recur` to override) |
+| `time` | Due datetime is reached | `--due` (notifies once by default; stays active until explicitly completed) |
 | `keyword` | Message text matches | `--keywords`, `--match any\|all\|regex` |
 | `condition` | Shell command output matches | `--check`, `--expect` |
 | `session` | Every session start check | — |
@@ -251,7 +251,7 @@ On macOS, agentrem ships a bundled Swift app (`Agentrem.app`) that runs as a sin
 
 **Notification behavior:**
 - **Click body** → notification re-appears (won't dismiss until you act on it)
-- **Complete ✅** → marks reminder complete and dismisses
+- **Complete ✅** → marks reminder complete and dismisses (the **only** way to complete a fired reminder)
 - **Multiple reminders** → single process handles all via IPC
 - **Fallback chain:** `Agentrem.app` → `terminal-notifier` → `osascript` → `console`
 
