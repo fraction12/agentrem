@@ -123,6 +123,7 @@ program
   .option('--text <text>', 'User message text (for keyword matching)')
   .option('--budget <n>', 'Token budget (default 800)', parseInt)
   .option('--format <fmt>', 'Output format: full|compact|inline')
+  .option('--json', 'Output JSON')
   .option('--agent, -a <name>', 'Agent name')
   .option('--escalate', 'Run escalation checks')
   .option('--dry-run', 'Preview without updating')
@@ -138,6 +139,11 @@ program
         escalate: opts.escalate,
         dryRun: opts.dryRun,
       });
+
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
 
       if (result.included.length === 0) return;
 
@@ -249,6 +255,7 @@ program
   .option('--category <cat>', 'Category filter')
   .option('--limit <n>', 'Max results', parseInt)
   .option('--format <fmt>', 'Output format: table|json|compact')
+  .option('--json', 'Output JSON')
   .option('--all', 'Show all statuses')
   .action((opts) => {
     const db = getDb();
@@ -264,6 +271,11 @@ program
         limit: opts.limit,
         all: opts.all,
       });
+
+      if (opts.json) {
+        console.log(JSON.stringify(rows, null, 2));
+        return;
+      }
 
       if (rows.length === 0) {
         console.log('No reminders found.');
@@ -303,6 +315,7 @@ program
   .option('--status <statuses>', 'Filter statuses')
   .option('--limit <n>', 'Max results', parseInt)
   .option('--format <fmt>', 'Output format: table|json')
+  .option('--json', 'Output JSON')
   .action((query, opts) => {
     const db = getDb();
     try {
@@ -311,6 +324,11 @@ program
         status: opts.status,
         limit: opts.limit,
       });
+
+      if (opts.json) {
+        console.log(JSON.stringify(rows, null, 2));
+        return;
+      }
 
       if (rows.length === 0) {
         console.log('No results found.');
@@ -457,10 +475,16 @@ program
 program
   .command('stats')
   .description('Show statistics')
-  .action(() => {
+  .option('--json', 'Output JSON')
+  .action((opts) => {
     const db = getDb();
     try {
       const s = coreStats(db);
+
+      if (opts.json) {
+        console.log(JSON.stringify(s, null, 2));
+        return;
+      }
       const prioParts = s.byPriority.map((p) => `${p.count} ${p.label}`);
       const prioStr = prioParts.length > 0 ? ` (${prioParts.join(', ')})` : '';
       const triggerParts = s.byTrigger.map((t) => `${t.count} ${t.type}`);
@@ -531,17 +555,23 @@ program
   .argument('[id]', 'Reminder ID (optional)')
   .option('--limit <n>', 'Number of entries', parseInt)
   .option('--format <fmt>', 'Output format: table|json')
+  .option('--json', 'Output JSON')
   .action((id, opts) => {
     const db = getDb();
     try {
       const rows = coreHistory(db, id, opts.limit || 20);
+
+      if (opts.json) {
+        console.log(JSON.stringify(rows, null, 2));
+        return;
+      }
 
       if (rows.length === 0) {
         console.log('No history found.');
         return;
       }
 
-      const fmt = opts.format || 'table';
+      const fmt = opts.json ? 'json' : (opts.format || 'table');
       if (fmt === 'json') {
         console.log(JSON.stringify(rows, null, 2));
       } else {
@@ -663,6 +693,49 @@ program
       }
     } finally {
       db.close();
+    }
+  });
+
+// ── setup ─────────────────────────────────────────────────────────────────
+
+program
+  .command('setup')
+  .description('Print integration snippets for AI tools')
+  .option('--mcp', 'Print Claude Desktop MCP config instead')
+  .action((opts) => {
+    if (opts.mcp) {
+      const config = {
+        mcpServers: {
+          agentrem: {
+            command: 'agentrem-mcp',
+            args: [],
+          },
+        },
+      };
+      console.log('Add this to ~/Library/Application Support/Claude/claude_desktop_config.json:\n');
+      console.log(JSON.stringify(config, null, 2));
+    } else {
+      console.log(`## Reminders
+You have access to \`agentrem\` CLI for persistent reminders across sessions.
+
+### On every session start, run:
+\`\`\`bash
+agentrem check --type time,session --budget 800
+\`\`\`
+
+### When the user says "remind me", "don't forget", "follow up", or "next time":
+\`\`\`bash
+agentrem add "<content>" --due "<when>" --priority <1-5> --tags "<tags>"
+\`\`\`
+
+### Key commands:
+- \`agentrem add\` — create a reminder
+- \`agentrem check\` — see what's triggered/due
+- \`agentrem list\` — list all active reminders
+- \`agentrem search <query>\` — full-text search
+- \`agentrem complete <id>\` — mark done
+- \`agentrem snooze <id> --for 2h\` — snooze
+- \`agentrem --help\` — full reference`);
     }
   });
 

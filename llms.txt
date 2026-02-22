@@ -1,127 +1,80 @@
 # agentrem
 
-> Structured reminders CLI + MCP server for AI agents. Persistent, priority-aware memory with triggers, recurrence, dependencies, and full-text search.
+> You lose context between sessions. agentrem fixes that.
 
-## Install
+You're an AI agent. Every time your session ends, you forget everything — reminders, follow-ups, things your human asked you to track. agentrem gives you persistent memory that survives across sessions.
 
-```bash
-npm install agentrem
-npm run build
-agentrem init
-```
-
-## Core Concepts
-
-- **Reminders** have content, priority (P1-P5), tags, trigger type, and optional due dates
-- **Trigger types**: `time` (due date), `keyword` (text match), `condition` (shell check), `session` (every session), `heartbeat` (every heartbeat), `manual`
-- **Priority levels**: 1=Critical, 2=High, 3=Normal, 4=Low, 5=Someday
-- **Token budget**: `check --budget <n>` limits output to fit context windows
-- **Multi-agent**: `--agent <name>` isolates reminders per agent namespace
-- **Database**: SQLite with FTS5 full-text search at `~/.agentrem/reminders.db`
-
-## CLI Quick Reference
+## Quick Integration (3 commands)
 
 ```bash
-# Create reminders
-agentrem add "Deploy v2.1" --due "+2h" --priority 2 --tags "deploy"
-agentrem add "Review on deploy" --trigger keyword --keywords "deploy,release" --match any
-agentrem add "Check CI" --trigger session
-agentrem add "Weekly sync" --due "monday 9am" --recur 1w
+# 1. Install (one time)
+npm install -g agentrem && agentrem init
 
-# Check what's triggered (the main agent integration point)
-agentrem check                          # all triggered reminders
-agentrem check --type time,keyword      # specific trigger types
-agentrem check --budget 500             # limit output tokens
-agentrem check --escalate               # auto-promote overdue (P3→P2 after 48h, P2→P1 after 24h)
-agentrem check --keywords "deploy"      # check keyword triggers against text
+# 2. On session start — check what's due
+agentrem check --type time,session --budget 800
 
-# List and search
-agentrem list                           # all active
-agentrem list --priority 1,2            # critical + high only
-agentrem list --tag deploy              # by tag
-agentrem list --trigger keyword         # by trigger type
-agentrem search "deploy staging"        # FTS5 search across all fields
-
-# Manage
-agentrem complete <id>                  # mark done (auto-creates next if recurring)
-agentrem snooze <id> --for 2h           # snooze for duration
-agentrem snooze <id> --until "tomorrow 9am"  # snooze until datetime
-agentrem edit <id> --priority 1         # change fields
-agentrem delete <id>                    # soft delete
-agentrem delete <id> --permanent        # hard delete
-
-# Maintenance
-agentrem stats                          # counts by status, priority, trigger type
-agentrem gc                             # clean up old completed/deleted
-agentrem history [id]                   # audit trail
-agentrem undo <history_id>              # revert a change
-agentrem export > backup.json           # JSON export
-agentrem import backup.json             # JSON import (--mode merge|replace)
-agentrem schema                         # show DB schema
+# 3. When your human says "remind me" — save it
+agentrem add "Deploy to prod" --due "tomorrow 9am" --priority 2
 ```
 
-## MCP Server
+Add `agentrem setup` output to your CLAUDE.md for automatic integration.
 
-Run as Model Context Protocol server for direct AI tool integration:
+## What You Can Do
 
 ```bash
-node dist/mcp/server.js
+agentrem add <content>          # Create a reminder (--due, --priority, --tags, --trigger)
+agentrem check                  # See what's triggered/due (--json for structured output)
+agentrem list                   # List all active (--json for structured output)
+agentrem search <query>         # Full-text search across all fields
+agentrem complete <id>          # Mark done (auto-creates next if recurring)
+agentrem snooze <id> --for 2h   # Snooze by duration or --until datetime
+agentrem edit <id>              # Modify fields
+agentrem stats                  # Overview (--json for structured output)
+agentrem setup                  # Print CLAUDE.md snippet (--mcp for MCP config)
 ```
 
-### MCP Tools
-- `add_reminder` — create a reminder
-- `check_reminders` — check for triggered reminders
-- `list_reminders` — list with filters
-- `search_reminders` — full-text search
-- `complete_reminder` — mark complete
-- `snooze_reminder` — snooze by duration or datetime
-- `edit_reminder` — modify fields
-- `delete_reminder` — soft or permanent delete
-- `get_stats` — statistics
-- `get_history` — audit trail
-- `undo_change` — revert a change
-- `garbage_collect` — clean up old reminders
-- `export_reminders` — JSON export
-- `import_reminders` — JSON import
+## Trigger Types
 
-### MCP Resources
-- `agentrem://reminders/active` — all active reminders
-- `agentrem://reminders/overdue` — overdue reminders
-- `agentrem://stats` — statistics
-- `agentrem://schema` — database schema
+| Type | Use when... | Example |
+|------|------------|---------|
+| `time` | Something is due at a specific time | `--due "tomorrow 9am"` |
+| `keyword` | You should react when certain words appear | `--trigger keyword --keywords "deploy,release"` |
+| `session` | You need to check every session start | `--trigger session` |
+| `heartbeat` | You need to check every heartbeat | `--trigger heartbeat` |
+| `condition` | A shell command should be monitored | `--trigger condition --check "git status" --expect "clean"` |
 
-### MCP Prompts
-- `triage` — review and prioritize active reminders
-- `guided-creation` — interactive reminder creation wizard
-- `session-briefing` — session start briefing with due/overdue items
+## Priority Levels
+
+1=Critical (always surfaced), 2=High, 3=Normal, 4=Low (counted not shown), 5=Someday (skipped)
 
 ## Agent Integration Patterns
 
-### Session start hook
 ```bash
-agentrem check --type time,session,heartbeat --budget 800
-```
+# Session start: check time + session triggers, fit in 800 tokens
+agentrem check --type time,session --budget 800
 
-### Message keyword scanning
-```bash
-agentrem check --type keyword --text "the user message text here"
-```
+# Message scanning: check if user message matches keyword triggers
+agentrem check --type keyword --text "the user's message here"
 
-### Periodic maintenance (cron)
-```bash
+# Periodic maintenance: escalate overdue, clean up old
 agentrem check --escalate && agentrem gc --days 30
+
+# Structured output for programmatic use
+agentrem check --json
+agentrem list --json
+agentrem stats --json
 ```
 
 ## Key Features
 
-- **Recurrence**: `--recur 1d|2w|1m` auto-creates next instance on completion
-- **Dependencies**: `--depends-on <id>` blocks until dependency is completed
-- **Decay**: `--decay <datetime>` auto-expires after a date
-- **Max fires**: `--max-fires <n>` auto-completes after N triggers
-- **Escalation**: overdue reminders auto-promote priority over time
-- **Undo**: full audit history, revert any change
-- **Export/Import**: JSON backup with merge and replace modes
+- **Recurrence**: `--recur 1d|2w|1m` — auto-creates next on completion
+- **Dependencies**: `--depends-on <id>` — blocks until dependency done
+- **Escalation**: overdue P3→P2 after 48h, P2→P1 after 24h
+- **Token budget**: `--budget <n>` limits output to fit your context window
+- **Multi-agent**: `--agent <name>` isolates per agent
+- **Full-text search**: FTS5 across content, context, tags, notes
+- **JSON output**: `--json` on check, list, search, stats, history
+- **MCP server**: `agentrem-mcp` for Claude Desktop / MCP clients
+- **Zero config**: SQLite database, no external services
 
-## License
-
-MIT
+See `llms-full.txt` for complete API reference with all flags and JSON examples.

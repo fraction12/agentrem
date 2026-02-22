@@ -1,0 +1,336 @@
+# agentrem — Full API Reference
+
+## Installation
+
+```bash
+npm install -g agentrem
+agentrem init
+```
+
+Or without global install: `npx agentrem init`
+
+---
+
+## Commands
+
+### agentrem init
+
+Initialize the SQLite database.
+
+```bash
+agentrem init              # Create ~/.agentrem/reminders.db
+agentrem init --force      # Recreate (backs up existing)
+```
+
+### agentrem add <content>
+
+Create a reminder.
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--due, -d <datetime>` | Due datetime (relative or absolute) | `--due "+2h"`, `--due "tomorrow 9am"`, `--due "2026-03-01"` |
+| `--trigger, -t <type>` | Trigger type: time/keyword/condition/session/heartbeat/manual | `--trigger keyword` |
+| `--priority, -p <n>` | Priority 1-5 (default: 3) | `--priority 1` |
+| `--tags <tags>` | Comma-separated tags | `--tags "deploy,urgent"` |
+| `--context, -c <ctx>` | Additional context string | `--context "PR #42 needs review"` |
+| `--category <cat>` | Category | `--category work` |
+| `--keywords, -k <kw>` | Keywords for keyword trigger | `--keywords "deploy,release,ship"` |
+| `--match <mode>` | Keyword match mode: any/all/regex | `--match any` |
+| `--check <cmd>` | Shell command for condition trigger | `--check "curl -s http://localhost:3000/health"` |
+| `--expect <output>` | Expected output for condition trigger | `--expect "ok"` |
+| `--decay <datetime>` | Auto-expire after this datetime | `--decay "+7d"` |
+| `--max-fires <n>` | Auto-complete after N triggers | `--max-fires 3` |
+| `--recur, -r <rule>` | Recurrence: 1d, 2d, 1w, 2w, 1m | `--recur 1w` |
+| `--agent, -a <name>` | Agent namespace | `--agent jarvis` |
+| `--depends-on <id>` | Dependency reminder ID | `--depends-on abc12345` |
+| `--source <src>` | Source: agent/user/system | `--source user` |
+| `--dry-run` | Preview without creating | |
+
+```bash
+# Time reminder
+agentrem add "Deploy v2" --due "+2h" --priority 2 --tags "deploy"
+
+# Keyword trigger
+agentrem add "Review security" --trigger keyword --keywords "deploy,release" --match any
+
+# Session reminder
+agentrem add "Check CI" --trigger session
+
+# Recurring weekly
+agentrem add "Team sync prep" --due "monday 9am" --recur 1w
+
+# With dependency
+agentrem add "Deploy" --due "+4h" --depends-on abc12345
+
+# With auto-expire
+agentrem add "Sale ends soon" --due "+1h" --decay "+24h"
+```
+
+### agentrem check
+
+Check for triggered reminders. This is the primary integration command.
+
+| Flag | Description |
+|------|-------------|
+| `--type <types>` | Comma-separated trigger types to check |
+| `--text <text>` | User message text (for keyword matching) |
+| `--budget <n>` | Token budget limit (default: 800) |
+| `--format <fmt>` | Output format: full/compact/inline |
+| `--json` | Output structured JSON |
+| `--agent, -a <name>` | Agent namespace |
+| `--escalate` | Run escalation (P3→P2 after 48h, P2→P1 after 24h) |
+| `--dry-run` | Preview without updating fire counts |
+
+```bash
+agentrem check                                    # All triggers
+agentrem check --type time,session --budget 800   # Session start
+agentrem check --type keyword --text "deploy now"  # Keyword scan
+agentrem check --escalate                          # With escalation
+agentrem check --json                              # Structured output
+```
+
+JSON output example:
+```json
+{
+  "included": [
+    {
+      "id": "8f103c9c12345678",
+      "content": "Deploy v2",
+      "trigger_type": "time",
+      "trigger_at": "2026-02-21T15:00:00",
+      "priority": 2,
+      "tags": "deploy",
+      "status": "active",
+      "fire_count": 1
+    }
+  ],
+  "overflowCounts": { "2": 0, "3": 0, "4": 1 }
+}
+```
+
+### agentrem list
+
+List reminders with filters.
+
+| Flag | Description |
+|------|-------------|
+| `--status, -s <statuses>` | Filter by status (comma-separated) |
+| `--priority <priorities>` | Filter by priority (comma-separated) |
+| `--tag <tag>` | Filter by tag |
+| `--trigger <type>` | Filter by trigger type |
+| `--due <filter>` | Due filter: today/tomorrow/overdue/week/date |
+| `--agent, -a <name>` | Agent namespace |
+| `--category <cat>` | Category filter |
+| `--limit <n>` | Max results |
+| `--format <fmt>` | Output: table/json/compact |
+| `--json` | Output structured JSON |
+| `--all` | Include all statuses (not just active) |
+
+```bash
+agentrem list                        # All active
+agentrem list --priority 1,2         # Critical + High
+agentrem list --tag deploy           # By tag
+agentrem list --due overdue          # Overdue only
+agentrem list --json                 # Structured output
+agentrem list --format compact       # One line per reminder
+```
+
+### agentrem search <query>
+
+Full-text search across content, context, tags, and notes.
+
+| Flag | Description |
+|------|-------------|
+| `--status <statuses>` | Filter by status |
+| `--limit <n>` | Max results |
+| `--format <fmt>` | Output: table/json |
+| `--json` | Output structured JSON |
+
+```bash
+agentrem search "deploy staging"
+agentrem search "deploy" --json
+```
+
+### agentrem complete <id>
+
+Mark a reminder as completed. If it has `--recur`, automatically creates the next instance.
+
+| Flag | Description |
+|------|-------------|
+| `--notes <text>` | Completion notes |
+
+```bash
+agentrem complete 8f103c9c
+agentrem complete 8f103c9c --notes "Deployed successfully"
+```
+
+### agentrem snooze <id>
+
+Snooze a reminder.
+
+| Flag | Description |
+|------|-------------|
+| `--until <datetime>` | Snooze until specific datetime |
+| `--for <duration>` | Snooze for duration: 1h, 2h, 1d, 3d, 1w |
+
+```bash
+agentrem snooze abc12345 --for 2h
+agentrem snooze abc12345 --until "tomorrow 9am"
+```
+
+### agentrem edit <id>
+
+Edit reminder fields.
+
+| Flag | Description |
+|------|-------------|
+| `--content <text>` | New content |
+| `--context <ctx>` | New context |
+| `--priority, -p <n>` | New priority |
+| `--due, -d <datetime>` | New due date |
+| `--tags <tags>` | Replace all tags |
+| `--add-tags <tags>` | Add tags |
+| `--remove-tags <tags>` | Remove tags |
+| `--category <cat>` | New category |
+| `--decay <datetime>` | New decay date |
+| `--max-fires <n>` | New max fires |
+| `--keywords, -k <kw>` | New keywords |
+| `--agent, -a <name>` | New agent |
+
+```bash
+agentrem edit abc12345 --priority 1
+agentrem edit abc12345 --due "+4h" --add-tags "urgent"
+```
+
+### agentrem delete [id]
+
+Delete a reminder (soft delete by default).
+
+| Flag | Description |
+|------|-------------|
+| `--permanent` | Hard delete (cannot be undone) |
+| `--status <status>` | Bulk delete by status |
+| `--older-than <days>` | Delete older than N days |
+
+```bash
+agentrem delete abc12345              # Soft delete
+agentrem delete abc12345 --permanent  # Hard delete
+agentrem delete --status expired      # Bulk delete expired
+```
+
+### agentrem stats
+
+Show statistics.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output structured JSON |
+
+```bash
+agentrem stats
+agentrem stats --json
+```
+
+JSON output example:
+```json
+{
+  "totalActive": 12,
+  "byPriority": [{"priority": 1, "count": 2, "label": "critical"}, {"priority": 3, "count": 10, "label": "normal"}],
+  "overdue": 1,
+  "snoozed": 0,
+  "completedWeek": 5,
+  "expired": 0,
+  "byTrigger": [{"type": "time", "count": 8}, {"type": "session", "count": 4}],
+  "nextDue": {"content": "Deploy v2", "triggerAt": "2026-02-21T15:00:00"},
+  "lastCreated": "2026-02-21T12:00:00",
+  "dbSizeBytes": 65536
+}
+```
+
+### agentrem history [id]
+
+View audit trail.
+
+| Flag | Description |
+|------|-------------|
+| `--limit <n>` | Number of entries (default: 20) |
+| `--format <fmt>` | Output: table/json |
+| `--json` | Output structured JSON |
+
+```bash
+agentrem history                    # All recent
+agentrem history abc12345           # For specific reminder
+agentrem history --json             # Structured output
+```
+
+### agentrem undo <history_id>
+
+Revert a specific change from the audit history.
+
+```bash
+agentrem history abc12345           # Find the history ID
+agentrem undo 42                    # Revert change #42
+```
+
+### agentrem gc
+
+Garbage collect old completed/expired/deleted reminders.
+
+| Flag | Description |
+|------|-------------|
+| `--older-than <days>` | Days threshold (default: 30) |
+| `--dry-run` | Preview without deleting |
+
+```bash
+agentrem gc                    # Remove >30 days old
+agentrem gc --older-than 7     # Remove >7 days old
+agentrem gc --dry-run          # Preview
+```
+
+### agentrem export / import
+
+```bash
+agentrem export                         # Export to ~/.agentrem/export-TIMESTAMP.json
+agentrem export --out backup.json       # Export to specific file
+agentrem import backup.json             # Import
+agentrem import backup.json --merge     # Skip duplicates
+agentrem import backup.json --replace   # Replace all
+agentrem import backup.json --dry-run   # Preview
+```
+
+### agentrem setup
+
+Print integration snippets.
+
+```bash
+agentrem setup         # Print CLAUDE.md snippet
+agentrem setup --mcp   # Print Claude Desktop MCP config
+```
+
+### agentrem schema
+
+Print the database schema (useful for debugging).
+
+---
+
+## Date/Time Formats
+
+Relative: `+1h`, `+2d`, `+1w`, `+30m`
+Named: `tomorrow`, `tomorrow 9am`, `monday`, `next friday 2pm`
+Absolute: `2026-03-01`, `2026-03-01T09:00:00`
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AGENTREM_DB` | Database file path | `~/.agentrem/reminders.db` |
+| `AGENTREM_DIR` | Data directory | `~/.agentrem` |
+
+## MCP Server
+
+```bash
+agentrem-mcp                    # Start MCP server (stdio transport)
+npx agentrem mcp                # Without global install
+```
+
+14 tools, 4 resources, 3 prompts. See README.md for full MCP reference.
