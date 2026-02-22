@@ -1,7 +1,7 @@
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export const SCHEMA_VERSION = 1;
-export const VERSION = '1.5.0';
+export const VERSION = '1.5.1';
 
 export const PRIORITY_LABELS: Record<number, string> = {
   1: '🔴 Critical',
