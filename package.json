@@ -1,6 +1,6 @@
 {
   "name": "agentrem",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Structured reminders CLI for AI agents with MCP server",
   "type": "module",
   "main": "dist/index.js",
@@ -29,10 +29,24 @@
     "ai-agent",
     "cli",
     "mcp",
+    "mcp-server",
     "sqlite",
     "llm",
+    "llm-tools",
+    "ai-tools",
     "agent-tools",
-    "model-context-protocol"
+    "agent-memory",
+    "persistent-memory",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "claude-desktop",
+    "cursor",
+    "windsurf",
+    "openai",
+    "anthropic",
+    "coding-agent",
+    "vibe-coding"
   ],
   "author": "Dushyant Garg",
   "repository": {
