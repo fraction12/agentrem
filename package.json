@@ -1,9 +1,14 @@
 {
   "name": "agentrem",
-  "version": "1.2.2",
+  "version": "1.5.0",
   "description": "Structured reminders CLI for AI agents with MCP server",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/api.js",
+  "types": "dist/api.d.ts",
+  "exports": {
+    ".": "./dist/api.js",
+    "./mcp": "./dist/mcp/server.js"
+  },
   "bin": {
     "agentrem": "dist/index.js",
     "agentrem-mcp": "dist/mcp/server.js"
@@ -13,10 +18,13 @@
     "llms.txt",
     "llms-full.txt",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "assets"
   ],
   "scripts": {
     "build": "tsc",
+    "postbuild": "chmod +x dist/index.js dist/mcp/server.js",
+    "build:notify": "bash scripts/build-notify.sh",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",

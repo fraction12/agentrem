@@ -23,8 +23,24 @@ export function parseDate(s: string): Date {
     return now;
   }
 
-  // 2. Named shortcuts
+  // 2. Natural language: "in N minutes/hours/days"
+  const nlm = /^in\s+(\d+)\s*(min(?:ute)?s?|hours?|days?|weeks?)$/i.exec(s);
+  if (nlm) {
+    const n = parseInt(nlm[1], 10);
+    const unit = nlm[2].toLowerCase();
+    const now = new Date();
+    if (unit.startsWith('min')) now.setMinutes(now.getMinutes() + n);
+    else if (unit.startsWith('hour')) now.setHours(now.getHours() + n);
+    else if (unit.startsWith('day')) now.setDate(now.getDate() + n);
+    else if (unit.startsWith('week')) now.setDate(now.getDate() + n * 7);
+    return now;
+  }
+
+  // 2b. Named shortcuts
   const sl = s.toLowerCase();
+  if (sl === 'now') {
+    return new Date();
+  }
   if (sl === 'today') {
     const now = new Date();
     now.setHours(23, 59, 0, 0);

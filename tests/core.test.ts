@@ -591,7 +591,10 @@ describe('coreList', () => {
   });
 
   it('filters by due=today', () => {
-    coreAdd(db, { content: 'Today', due: '+1h' });
+    // Use a time firmly within today to avoid midnight-crossing flakiness
+    const todayNoon = new Date();
+    todayNoon.setHours(12, 0, 0, 0);
+    coreAdd(db, { content: 'Today', due: dtToIso(todayNoon) });
     coreAdd(db, { content: 'Far future', due: '+720h' });
     const rows = coreList(db, { due: 'today' });
     expect(rows.length).toBeGreaterThanOrEqual(1);
