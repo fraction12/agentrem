@@ -219,7 +219,7 @@
     <p class="hero-tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
     <div class="badges">
       <span class="badge"><span class="dot dot-amber"></span><span id="version-badge">v1.6.0</span></span>
-      <span class="badge"><span class="dot dot-green"></span><span id="test-counter">450+</span> tests passing</span>
+      <span class="badge"><span class="dot dot-green"></span><span id="test-counter">460+</span> tests passing</span>
       <span class="badge"><span class="dot dot-blue"></span>MIT License</span>
       <span class="badge"><span class="dot dot-purple"></span>MCP Compatible</span>
     </div>
@@ -596,7 +596,7 @@ You have access to `agentrem` for persistent reminders across sessions.
     if (!prefersReduced && 'IntersectionObserver' in window) {
       var cntObs = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
-          if (entry.isIntersecting) { animateCounter(counterEl, 450, 1500); cntObs.unobserve(entry.target); }
+          if (entry.isIntersecting) { animateCounter(counterEl, 460, 1500); cntObs.unobserve(entry.target); }
         });
       }, { threshold: 0.5 });
       cntObs.observe(counterEl.closest('.badge') || counterEl);

@@ -6,10 +6,9 @@ SQLite-backed structured reminders for AI agents.
 
 ```bash
 npm install -g agentrem
-agentrem init
 ```
 
-Or without global install: `npx agentrem init`
+The database auto-initializes on first use. Or without global install: `npx agentrem`
 
 ---
 

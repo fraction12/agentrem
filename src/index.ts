@@ -60,7 +60,8 @@ program
   .option('--tags <tags>', 'Comma-separated tags')
   .option('--context, -c <ctx>', 'Context string')
   .option('--category <cat>', 'Category')
-  .option('--keywords, --keyword, -k <kw>', 'Keywords for keyword trigger')
+  .option('--keywords <kw>', 'Keywords for keyword trigger')
+  .option('--keyword <kw>', 'Alias for --keywords')
   .option('--match <mode>', 'Keyword match mode: any|all|regex')
   .option('--check <cmd>', 'Shell command for condition trigger')
   .option('--expect <output>', 'Expected output for condition trigger')
@@ -82,7 +83,7 @@ program
         tags: opts.tags,
         context: opts.context || opts.C,
         category: opts.category,
-        keywords: opts.keywords || opts.K,
+        keywords: opts.keywords || opts.keyword || opts.K,
         match: opts.match,
         check: opts.check,
         expect: opts.expect,
@@ -461,7 +462,7 @@ program
         category: opts.category,
         decay: opts.decay,
         maxFires: opts.maxFires,
-        keywords: opts.keywords || opts.K,
+        keywords: opts.keywords || opts.keyword || opts.K,
         agent: opts.agent || opts.A,
       });
       console.log(`✏️  Updated [${rem.id.slice(0, 8)}]`);

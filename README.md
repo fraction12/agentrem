@@ -313,9 +313,8 @@ agentrem check --json   # structured output your agent can parse; memory.md can'
 
 ```bash
 npm install -g agentrem
-agentrem init
 ```
 
-Then run `agentrem setup` to get your `CLAUDE.md` snippet, or `agentrem setup --mcp` for Claude Desktop.
+The database auto-initializes on first use. Run `agentrem setup` to get your `CLAUDE.md` snippet, or `agentrem setup --mcp` for Claude Desktop.
 
 MIT License
