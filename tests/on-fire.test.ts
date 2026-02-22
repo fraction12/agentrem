@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { executeOnFire } from '../src/watch.js';
 import { runCheckCycle, type WatchState } from '../src/watch.js';
 import type { Reminder } from '../src/types.js';
-import { existsSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
+import { initDb } from '../src/db.js';
 
 const LOG_DIR = join(homedir(), '.agentrem', 'logs');
 const LOG_FILE = join(LOG_DIR, 'on-fire.log');
@@ -47,7 +48,7 @@ describe('executeOnFire', () => {
     expect(result).toBe(true);
   });
 
-  it('returns true on successful command', () => {
+  it.skipIf(process.platform === 'win32')('returns true on successful command', () => {
     const rem = makeReminder();
     const result = executeOnFire('echo ok', rem);
     expect(result).toBe(true);
@@ -78,7 +79,7 @@ describe('executeOnFire', () => {
     expect(log).toContain('err-test');
   });
 
-  it('passes all expected env var fields', () => {
+  it.skipIf(process.platform === 'win32')('passes all expected env var fields', () => {
     const rem = makeReminder({
       id: 'env-check-id',
       content: 'env check content',
@@ -138,10 +139,26 @@ describe('executeOnFire', () => {
 });
 
 describe('runCheckCycle with onFire', () => {
+  let tmpDir: string;
+  let dbPath: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'agentrem-onfire-test-'));
+    dbPath = join(tmpDir, 'reminders.db');
+    process.env['AGENTREM_DB'] = dbPath;
+    initDb(false, dbPath);
+  });
+
+  afterEach(() => {
+    delete process.env['AGENTREM_DB'];
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
   it('does not call on-fire when no reminders fire', () => {
     const state: WatchState = { lastNotified: new Map() };
     // With a fresh DB that has no reminders, on-fire should not be called
     const notified = runCheckCycle(state, {
+      dbPath,
       onFire: 'echo should-not-run',
       onNotify: () => {}, // no-op notifications
     });
