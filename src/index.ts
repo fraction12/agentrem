@@ -9,6 +9,7 @@ import { VERSION, PRIORITY_LABELS, AgentremError } from './types.js';
 import { initDb, getDb } from './db.js';
 import { fmtDt, truncate, dtToIso } from './date-parser.js';
 import { startWatch } from './watch.js';
+import { checkWatch, fmtWatchReminder } from './check-watch.js';
 import { installService, uninstallService, getServiceStatus } from './service.js';
 import {
   coreAdd,
@@ -130,7 +131,36 @@ program
   .option('--agent, -a <name>', 'Agent name')
   .option('--escalate', 'Run escalation checks')
   .option('--dry-run', 'Preview without updating')
-  .action((opts) => {
+  .option('--watch', 'Block until a reminder fires (use with --timeout)')
+  .option('--timeout <seconds>', 'Seconds to wait in --watch mode (exit 1 if no reminder)', parseInt)
+  .action(async (opts) => {
+    // ── Watch mode ─────────────────────────────────────────────────────────
+    if (opts.watch) {
+      const result = await checkWatch({
+        agent: opts.agent || opts.A,
+        type: opts.type,
+        budget: opts.budget,
+        timeout: opts.timeout,
+      });
+
+      if (result.timedOut) {
+        // --timeout elapsed with no reminder
+        process.exit(1);
+        return;
+      }
+
+      if (result.reminder === null) {
+        // SIGINT / SIGTERM — clean exit, no output
+        process.exit(0);
+        return;
+      }
+
+      console.log(fmtWatchReminder(result.reminder, !!opts.json));
+      process.exit(0);
+      return;
+    }
+
+    // ── Normal (one-shot) mode ──────────────────────────────────────────────
     const db = getDb();
     try {
       const result = coreCheck(db, {
