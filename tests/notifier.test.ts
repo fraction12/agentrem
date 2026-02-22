@@ -14,6 +14,7 @@ vi.mock('node:child_process', () => {
     execFile: vi.fn((_cmd: string, _args: string[], cb?: Function) => {
       if (cb) cb(null, '', '');
     }),
+    spawn: vi.fn(() => ({ unref: vi.fn(), on: vi.fn() })),
   };
 });
 
@@ -35,7 +36,7 @@ import {
   type NotifierBackend,
 } from '../src/notifier.js';
 
-import { execFileSync, execFile } from 'node:child_process';
+import { execFileSync, execFile, spawn } from 'node:child_process';
 import { existsSync, writeFileSync, unlinkSync } from 'node:fs';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -530,15 +531,15 @@ describe('agentrem-app backend — sendNotification', () => {
     expect(parsed.reminderId).toBeUndefined();
   });
 
-  it('calls open -a <Agentrem.app> --args <tmpPath>', () => {
+  it('spawns agentrem-notify binary detached with tmpPath', () => {
     const opts: NotifyOpts = { title: 'T', subtitle: 'S', message: 'M' };
     sendNotification(opts);
 
     const [tmpPath] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
-    expect(vi.mocked(execFileSync)).toHaveBeenCalledWith(
-      'open',
-      ['-a', expect.stringContaining('Agentrem.app'), '--args', tmpPath],
-      { stdio: 'pipe' },
+    expect(vi.mocked(spawn)).toHaveBeenCalledWith(
+      expect.stringContaining('agentrem-notify'),
+      [tmpPath],
+      { stdio: 'ignore', detached: true },
     );
   });
 
@@ -571,8 +572,8 @@ describe('agentrem-app backend — sendNotification', () => {
     expect(vi.mocked(unlinkSync)).toHaveBeenCalledWith(tmpPath);
   });
 
-  it('falls back to osascript when open fails', () => {
-    vi.mocked(execFileSync).mockImplementationOnce(() => { throw new Error('open failed'); });
+  it('falls back to osascript when spawn fails', () => {
+    vi.mocked(spawn).mockImplementationOnce(() => { throw new Error('spawn failed'); });
     // Let osascript succeed
     vi.mocked(execFileSync).mockReturnValueOnce('' as any);
 

@@ -2,7 +2,7 @@
 // Dispatches notifications via agentrem-app → terminal-notifier → osascript → console.log.
 // No external npm dependencies — uses only macOS-native tools.
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn as _spawn } from 'node:child_process';
 import { existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -184,12 +184,20 @@ function sendViaAgentremApp(opts: NotifyOpts): void {
 
   writeFileSync(tmpPath, payload, { encoding: 'utf8', mode: 0o600 });
 
+  // Launch the binary directly (not via `open -a`) so that a new process
+  // always starts. The Swift app uses a singleton pattern: if another
+  // instance is already running, it forwards the payload via IPC and exits.
+  // Spawn detached — the app stays alive as a notification handler.
+  const binaryPath = resolve(appPath, 'Contents/MacOS/agentrem-notify');
   try {
-    execFileSync('open', ['-a', appPath, '--args', tmpPath], { stdio: 'pipe' });
-    // Give the app ~500ms to read the file before we delete it
+    const child = _spawn(binaryPath, [tmpPath], {
+      stdio: 'ignore',
+      detached: true,
+    });
+    child.unref();
+    // Give the app time to read the JSON file before we delete it
     _syncSleep(500);
   } catch {
-    // open failed — fall back
     sendViaOsascript(opts);
   } finally {
     try { unlinkSync(tmpPath); } catch { /* ignore */ }
