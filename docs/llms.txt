@@ -35,12 +35,12 @@ agentrem undo <history_id>      # Revert a change
 agentrem gc                     # Garbage collect old reminders
 agentrem export                 # Export to JSON
 agentrem import <file>          # Import from JSON
-agentrem watch                  # Background daemon: poll + fire OS notifications
+agentrem watch                  # Background daemon: poll + fire OS notifications + auto-gc
 agentrem doctor                 # Self-diagnostic check
 agentrem quickstart             # Interactive first-run walkthrough
 agentrem setup                  # Print CLAUDE.md snippet (--mcp for MCP config)
 agentrem schema                 # Show database schema
-agentrem init                   # Initialize database
+agentrem init                   # Initialize database (auto-runs on first use)
 ```
 
 ## add flags

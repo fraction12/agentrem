@@ -236,7 +236,7 @@ agentrem watch --uninstall
 
 ## Native Notifications 🔔
 
-On macOS, agentrem ships a bundled Swift app (`Agentrem.app`) so notifications appear with a bell icon — not a terminal icon.
+On macOS, agentrem ships a bundled Swift app (`Agentrem.app`) that runs as a singleton process — notifications appear under "agentrem" with a bell icon.
 
 | Priority | Sound |
 |----------|-------|
@@ -244,9 +244,13 @@ On macOS, agentrem ships a bundled Swift app (`Agentrem.app`) so notifications a
 | P2 🟡 High | Ping |
 | P3 🔵 Normal | Pop |
 
-**Backend fallback order:** `Agentrem.app` → `terminal-notifier` → `osascript` → `console`
+**Notification behavior:**
+- **Click body** → notification re-appears (won't dismiss until you act on it)
+- **Complete ✅** → marks reminder complete and dismisses
+- **Multiple reminders** → single process handles all via IPC
+- **Fallback chain:** `Agentrem.app` → `terminal-notifier` → `osascript` → `console`
 
-Notifications include a **Complete** button on macOS and cheeky overdue messages. To rebuild the Swift app: `npm run build:notify`
+To rebuild the Swift app: `npm run build:notify`
 
 ---
 

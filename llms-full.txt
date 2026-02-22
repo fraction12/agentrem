@@ -402,7 +402,7 @@ JSON output example:
 
 ### agentrem history [id]
 
-View audit trail of reminder changes.
+View audit trail of reminder changes. Tracks: `created`, `completed`, `snoozed`, `fired`, `updated`, `deleted`.
 
 | Flag | Description |
 |------|-------------|
@@ -524,7 +524,7 @@ agentrem quickstart
 
 ### agentrem watch
 
-Background daemon that polls for due reminders and fires native OS notifications. Runs until interrupted (SIGINT/SIGTERM).
+Background daemon that polls for due reminders and fires native OS notifications. Runs until interrupted (SIGINT/SIGTERM). Automatically runs garbage collection every 24 hours (no external cron needed).
 
 | Flag | Description |
 |------|-------------|
@@ -842,15 +842,22 @@ No global install:
 
 ## Native Notifications
 
-agentrem ships a custom Swift app (`Agentrem.app`) bundled in `assets/`. When present, it is preferred over all other backends.
+agentrem ships a custom Swift app (`Agentrem.app`) bundled in `assets/`. It runs as a **singleton process** — one instance handles all notifications via IPC (DistributedNotificationCenter).
+
+### Notification Behavior
+
+- **Click notification body** → notification re-delivers itself (won't disappear until acted on)
+- **Complete ✅ button** → marks the reminder as completed and dismisses
+- **Multiple reminders** → all handled by the same singleton process
+- **Auto-exit** → process terminates after 10 minutes of inactivity
 
 ### Notification Backends (priority order)
 
 | Backend | When used | Notes |
 |---------|-----------|-------|
-| `agentrem-app` | `Agentrem.app` found in `assets/` | Preferred. Shows "agentrem" as app name with 🔔 bell icon |
+| `agentrem-app` | `Agentrem.app` found in `assets/` | Preferred. Singleton process, shows "agentrem" with 🔔 bell icon |
 | `terminal-notifier` | `terminal-notifier` on PATH | Fallback if app missing |
-| `osascript` | macOS, no terminal-notifier | Native AppleScript notifications |
+| `osascript` | macOS, no terminal-notifier | Native AppleScript notifications (shows as "Script Editor") |
 | `console` | Linux / no other option | Prints to stdout |
 
 ### Priority-Based Sounds
@@ -875,12 +882,11 @@ agentrem ships a custom Swift app (`Agentrem.app`) bundled in `assets/`. When pr
 | < 48 hours | "it's been a whole day, dude" |
 | 2+ days | "I've been here for N days. just saying." |
 
-Notifications include a **Complete** button (macOS) that lets you complete the reminder from the notification banner without opening a terminal.
-
 ### Rebuilding Agentrem.app
 
 ```bash
 npm run build:notify    # Recompile Swift source in assets/notify-src/
+codesign -f -s - assets/Agentrem.app  # Re-sign after rebuild
 ```
 
 ---
