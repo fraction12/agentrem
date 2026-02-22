@@ -272,6 +272,20 @@ describe('buildNotifyOpts', () => {
     const rem = makeReminder({ priority: 1 });
     expect(buildNotifyOpts(rem).group).toBe('com.agentrem.watch');
   });
+
+  // ── reminderId ──────────────────────────────────────────────────────────
+
+  it('reminderId matches the reminder id', () => {
+    const rem = makeReminder({ id: 'abc123xyz' });
+    expect(buildNotifyOpts(rem).reminderId).toBe('abc123xyz');
+  });
+
+  it('reminderId is included for all priorities', () => {
+    for (const priority of [1, 2, 3, 4, 5] as const) {
+      const rem = makeReminder({ priority, id: `rem-p${priority}` });
+      expect(buildNotifyOpts(rem).reminderId).toBe(`rem-p${priority}`);
+    }
+  });
 });
 
 // ── detectNotifier ────────────────────────────────────────────────────────
@@ -474,6 +488,7 @@ describe('agentrem-app backend — sendNotification', () => {
       subtitle: 'just now',
       message: 'Ship it',
       sound: 'Hero',
+      reminderId: 'test-remind-id',
     };
     sendNotification(opts);
 
@@ -488,7 +503,31 @@ describe('agentrem-app backend — sendNotification', () => {
       subtitle: 'just now',
       message: 'Ship it',
       sound: 'Hero',
+      reminderId: 'test-remind-id',
     });
+  });
+
+  it('JSON temp file includes reminderId from opts', () => {
+    const opts: NotifyOpts = {
+      title: 'T',
+      subtitle: 'S',
+      message: 'M',
+      reminderId: 'abc123',
+    };
+    sendNotification(opts);
+
+    const [, rawContent] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
+    const parsed = JSON.parse(rawContent as string);
+    expect(parsed.reminderId).toBe('abc123');
+  });
+
+  it('JSON temp file omits reminderId when not provided', () => {
+    const opts: NotifyOpts = { title: 'T', subtitle: 'S', message: 'M' };
+    sendNotification(opts);
+
+    const [, rawContent] = vi.mocked(writeFileSync).mock.calls[0] as [string, string, string];
+    const parsed = JSON.parse(rawContent as string);
+    expect(parsed.reminderId).toBeUndefined();
   });
 
   it('calls open -a <Agentrem.app> --args <tmpPath>', () => {

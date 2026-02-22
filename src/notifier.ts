@@ -17,6 +17,7 @@ export interface NotifyOpts {
   message: string;
   sound?: string;
   group?: string;
+  reminderId?: string;
 }
 
 export type NotifierBackend = 'agentrem-app' | 'terminal-notifier' | 'osascript' | 'console';
@@ -108,7 +109,7 @@ export function buildNotifyOpts(rem: Reminder, now: number = Date.now()): Notify
   const message = truncate(rem.content, 80);
   const sound = PRIORITY_SOUNDS[rem.priority]; // undefined for P4/P5
 
-  return { title, subtitle, message, sound, group: 'com.agentrem.watch' };
+  return { title, subtitle, message, sound, group: 'com.agentrem.watch', reminderId: rem.id };
 }
 
 // ── Path helpers ─────────────────────────────────────────────────────────────
@@ -178,6 +179,7 @@ function sendViaAgentremApp(opts: NotifyOpts): void {
     subtitle: opts.subtitle,
     message: opts.message,
     sound: opts.sound,
+    reminderId: opts.reminderId,
   });
 
   writeFileSync(tmpPath, payload, 'utf8');
