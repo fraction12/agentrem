@@ -28,7 +28,7 @@ Create a reminder.
 
 | Flag | Description | Example |
 |------|-------------|---------|
-| `--due, -d <datetime>` | Due datetime (relative or absolute) | `--due "+2h"`, `--due "tomorrow 9am"`, `--due "2026-03-01"` |
+| `--due, -d <datetime>` | Due datetime (natural language or ISO) | `--due "+2h"`, `--due "tomorrow"`, `--due "in 5 minutes"` |
 | `--trigger, -t <type>` | Trigger type: time/keyword/condition/session/heartbeat/manual | `--trigger keyword` |
 | `--priority, -p <n>` | Priority 1-5 (default: 3) | `--priority 1` |
 | `--tags <tags>` | Comma-separated tags | `--tags "deploy,urgent"` |
@@ -50,6 +50,10 @@ Create a reminder.
 # Time reminder
 agentrem add "Deploy v2" --due "+2h" --priority 2 --tags "deploy"
 
+# Natural language due date
+agentrem add "Team standup" --due "tomorrow" --priority 3
+agentrem add "Send report" --due "in 30 minutes"
+
 # Keyword trigger
 agentrem add "Review security" --trigger keyword --keywords "deploy,release" --match any
 
@@ -57,7 +61,7 @@ agentrem add "Review security" --trigger keyword --keywords "deploy,release" --m
 agentrem add "Check CI" --trigger session
 
 # Recurring weekly
-agentrem add "Team sync prep" --due "monday 9am" --recur 1w
+agentrem add "Team sync prep" --due "2026-02-24T09:00:00" --recur 1w
 
 # With dependency
 agentrem add "Deploy" --due "+4h" --depends-on abc12345
@@ -175,7 +179,7 @@ Snooze a reminder.
 
 ```bash
 agentrem snooze abc12345 --for 2h
-agentrem snooze abc12345 --until "tomorrow 9am"
+agentrem snooze abc12345 --until "tomorrow"
 ```
 
 ### agentrem edit <id>
@@ -187,7 +191,7 @@ Edit reminder fields.
 | `--content <text>` | New content |
 | `--context <ctx>` | New context |
 | `--priority, -p <n>` | New priority |
-| `--due, -d <datetime>` | New due date |
+| `--due, -d <datetime>` | New due date (natural language or ISO) |
 | `--tags <tags>` | Replace all tags |
 | `--add-tags <tags>` | Add tags |
 | `--remove-tags <tags>` | Remove tags |
@@ -200,6 +204,7 @@ Edit reminder fields.
 ```bash
 agentrem edit abc12345 --priority 1
 agentrem edit abc12345 --due "+4h" --add-tags "urgent"
+agentrem edit abc12345 --due "in 2 hours"
 ```
 
 ### agentrem delete [id]
@@ -307,17 +312,218 @@ agentrem setup         # Print CLAUDE.md snippet
 agentrem setup --mcp   # Print Claude Desktop MCP config
 ```
 
-### agentrem schema
+### agentrem doctor
 
-Print the database schema (useful for debugging).
+Self-diagnostic command. Checks that the database exists and is healthy, schema is valid, and warns about overdue reminders or large DB size.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output structured JSON |
+
+```bash
+agentrem doctor
+agentrem doctor --json
+```
+
+Output:
+```
+🩺 agentrem doctor
+
+✅ Database exists: /Users/you/.agentrem/reminders.db
+✅ Schema valid: Tables: reminders, history, reminders_fts
+⚠️ Active reminders: 0 active reminders. Add one: agentrem add "Test" --due "+1h"
+✅ Database size: 64 KB
+
+🟡 Some issues found.
+```
+
+JSON output example:
+```json
+{
+  "healthy": false,
+  "checks": [
+    { "check": "Database exists", "status": "ok", "detail": "/Users/you/.agentrem/reminders.db" },
+    { "check": "Schema valid", "status": "ok", "detail": "Tables: reminders, history, reminders_fts" },
+    { "check": "Active reminders", "status": "warn", "detail": "No active reminders. Add one: agentrem add \"Test\" --due \"+1h\"" },
+    { "check": "Database size", "status": "ok", "detail": "64 KB" }
+  ]
+}
+```
+
+### agentrem quickstart
+
+Interactive first-run walkthrough. Initializes the database (if needed), creates a sample reminder, runs a check, and cleans up — confirming everything works.
+
+```bash
+agentrem quickstart
+```
+
+Output:
+```
+📦 Step 1/4: Initializing database...
+📝 Step 2/4: Creating a sample reminder...
+🔔 Step 3/4: Checking triggered reminders...
+✅ Step 4/4: Completing the test reminder...
+
+🎉 Quickstart complete! agentrem is working.
+
+Next steps:
+  agentrem add "My first real reminder" --due "+1h" --priority 2
+  agentrem check
+  agentrem setup    # Get your CLAUDE.md snippet
+  agentrem doctor   # Run diagnostics anytime
+```
+
+### agentrem watch
+
+Background daemon that polls for due reminders and fires native OS notifications. Runs until interrupted (SIGINT/SIGTERM).
+
+| Flag | Description |
+|------|-------------|
+| `--interval <seconds>` | Poll interval in seconds (default: 30) |
+| `--agent, -a <name>` | Agent name to check for (default: main) |
+| `--once` | Run a single check and exit |
+| `--verbose` | Show poll log output |
+| `--install` | Install as OS background service (launchd on macOS, systemd on Linux) |
+| `--uninstall` | Remove the background service |
+| `--status` | Show service status |
+
+```bash
+# Run in foreground
+agentrem watch                           # Poll every 30s (default)
+agentrem watch --interval 60             # Poll every 60s
+agentrem watch --agent jarvis            # Check reminders for agent "jarvis"
+agentrem watch --once                    # Single check then exit
+agentrem watch --verbose                 # Verbose logging
+
+# Service management (auto-start on boot)
+agentrem watch --install                 # Install and start service
+agentrem watch --install --interval 60   # Install with custom interval
+agentrem watch --uninstall               # Stop and remove service
+agentrem watch --status                  # Show installed/running status
+```
+
+#### How polling works
+
+- Runs `coreCheck` with types `time,heartbeat,session,condition` and `--escalate` on every tick
+- Per-reminder **dedup cooldown**: once a reminder is notified, it won't fire again for 5 minutes
+- Handles SIGINT/SIGTERM for clean shutdown
+- First check runs immediately on start
+
+#### Service management
+
+**macOS (launchd):**
+- Writes a LaunchAgent plist to `~/Library/LaunchAgents/com.agentrem.watch.plist`
+- Logs to `~/.agentrem/logs/watch.log` and `watch.error.log`
+- Service label: `com.agentrem.watch`
+- `KeepAlive: true` — restarts automatically on crash
+
+**Linux (systemd):**
+- Writes a user unit to `~/.config/systemd/user/agentrem-watch.service`
+- Enabled with `systemctl --user enable --now`
+- Logs to `~/.agentrem/logs/watch.log` and `watch.error.log`
+
+#### watch --status output
+
+```
+✅ Installed: true
+🟢 Running:   true
+   Platform: darwin
+   File:     /Users/you/Library/LaunchAgents/com.agentrem.watch.plist
+   Detail:   launchctl: ...
+```
+
+#### watch --once (single check)
+
+Useful in scripts or cron jobs to check once and exit. Combine with `--verbose` to see what fired:
+
+```bash
+agentrem watch --once --verbose
+# [agentrem watch] started — interval=30s agent=main
+# [agentrem watch] 🔔 [8f103c9c] Deploy v2
+# [agentrem watch] checked at 2026-02-22T09:00:00.000Z — 1 triggered, 1 notified
+```
+
+---
+
+## Native Notifications
+
+agentrem ships a custom Swift app (`Agentrem.app`) bundled in `assets/`. When present, it is preferred over all other backends.
+
+### Notification Backends (priority order)
+
+| Backend | When used | Notes |
+|---------|-----------|-------|
+| `agentrem-app` | `Agentrem.app` found in `assets/` | Preferred. Shows "agentrem" as app name with 🔔 bell icon |
+| `terminal-notifier` | `terminal-notifier` on PATH | Fallback if app missing |
+| `osascript` | macOS, no terminal-notifier | Native AppleScript notifications |
+| `console` | Linux / no other option | Prints to stdout |
+
+### Priority-Based Sounds
+
+| Priority | Sound |
+|----------|-------|
+| P1 Critical | Hero |
+| P2 High | Ping |
+| P3 Normal | Pop |
+| P4–P5 | (no sound) |
+
+### Overdue Messages
+
+The notification subtitle changes based on how overdue a reminder is:
+
+| Overdue duration | Subtitle |
+|-----------------|----------|
+| < 2 min | "just now" |
+| < 30 min | "X min ago" |
+| < 1 hour | "about an hour, no biggie" |
+| < 3 hours | "been a couple hours..." |
+| < 6 hours | "this has been waiting a while" |
+| < 24 hours | "so... you forgot about this one 😅" |
+| < 48 hours | "it's been a whole day, dude" |
+| 2+ days | "I've been here for N days. just saying." |
+
+### Rebuilding Agentrem.app
+
+```bash
+npm run build:notify    # Recompile Swift source in assets/notify-src/
+```
 
 ---
 
 ## Date/Time Formats
 
-Relative: `+1h`, `+2d`, `+1w`, `+30m`
-Named: `tomorrow`, `tomorrow 9am`, `monday`, `next friday 2pm`
-Absolute: `2026-03-01`, `2026-03-01T09:00:00`
+All date inputs (`--due`, `--until`, `--decay`, etc.) accept:
+
+### Natural language
+```
+now                    # Immediately
+today                  # Today at 23:59
+tomorrow               # Tomorrow at 09:00
+in 5 minutes
+in 2 hours
+in 3 days
+in 1 week
+```
+
+### Relative shortcuts
+```
++5m                    # 5 minutes from now
++2h                    # 2 hours from now
++3d                    # 3 days from now
++1w                    # 1 week from now
+```
+
+### ISO 8601
+```
+2026-02-22T09:00:00    # Full datetime
+2026-02-22T09:00       # Without seconds
+2026-02-22 09:00:00    # Space separator
+2026-02-22 09:00       # Space, no seconds
+2026-02-22             # Date only (00:00:00)
+```
+
+---
 
 ## Environment Variables
 
@@ -325,6 +531,8 @@ Absolute: `2026-03-01`, `2026-03-01T09:00:00`
 |----------|-------------|---------|
 | `AGENTREM_DB` | Database file path | `~/.agentrem/reminders.db` |
 | `AGENTREM_DIR` | Data directory | `~/.agentrem` |
+
+---
 
 ## MCP Server
 
@@ -334,3 +542,26 @@ npx agentrem mcp                # Without global install
 ```
 
 14 tools, 4 resources, 3 prompts. See README.md for full MCP reference.
+
+### Claude Desktop Config
+
+```json
+{
+  "mcpServers": {
+    "agentrem": {
+      "command": "agentrem-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+---
+
+## agentrem schema
+
+Print the database schema (useful for debugging).
+
+```bash
+agentrem schema
+```

@@ -2,14 +2,14 @@
 
 [![npm version](https://img.shields.io/npm/v/agentrem)](https://www.npmjs.com/package/agentrem)
 [![CI](https://github.com/fraction12/agentrem/actions/workflows/ci.yml/badge.svg)](https://github.com/fraction12/agentrem/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-292%20passing-brightgreen)](https://github.com/fraction12/agentrem)
+[![Tests](https://img.shields.io/badge/tests-392%20passing-brightgreen)](https://github.com/fraction12/agentrem)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/node/v/agentrem)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue)](https://modelcontextprotocol.io)
 
-Structured reminders CLI + MCP server that gives AI agents persistent, priority-aware memory with triggers, recurrence, dependencies, and full-text search.
+Structured reminders CLI + MCP server that gives AI agents persistent, priority-aware memory with triggers, recurrence, dependencies, full-text search, and native OS notifications.
 
-**Why?** AI agents forget between sessions. agentrem gives them a reminder system that persists across sessions, triggers on time/keywords/conditions, and fits within token budgets.
+**Why?** AI agents forget between sessions. agentrem gives them a reminder system that persists across sessions, triggers on time/keywords/conditions, fires native desktop notifications, and fits within token budgets.
 
 ## Install
 
@@ -56,7 +56,7 @@ agentrem add "<content>" --due "<when>" --priority <1-5> --tags "<tags>"
 **3. That's it.** Next time you tell Claude Code "remind me to deploy tomorrow at 9am", it runs:
 
 ```bash
-agentrem add "Deploy to production" --due "tomorrow 9am" --priority 2
+agentrem add "Deploy to production" --due "tomorrow" --priority 2
 ```
 
 Next session, `agentrem check` surfaces it automatically.
@@ -125,8 +125,16 @@ agentrem complete <id>
 ## Quick Start
 
 ```bash
+# Run the interactive walkthrough (first time)
+agentrem quickstart
+
 # Time-triggered reminder
 agentrem add "Deploy v2.1 to staging" --due "+2h" --priority 2 --tags "deploy,staging"
+
+# Natural language dates
+agentrem add "Send weekly report" --due "tomorrow" --priority 2
+agentrem add "Check alerts" --due "in 30 minutes"
+agentrem add "Quarterly review" --due "2026-04-01" --priority 3
 
 # Keyword-triggered (fires when text matches)
 agentrem add "Review security checklist" --trigger keyword --keywords "deploy,release" --match any
@@ -135,7 +143,7 @@ agentrem add "Review security checklist" --trigger keyword --keywords "deploy,re
 agentrem add "Check CI pipeline status" --trigger session
 
 # Recurring weekly reminder
-agentrem add "Weekly sync prep" --due "monday 9am" --recur 1w
+agentrem add "Weekly sync prep" --due "2026-02-24T09:00:00" --recur 1w
 
 # Check what's triggered
 agentrem check
@@ -148,6 +156,9 @@ agentrem search "deploy staging"
 
 # Complete
 agentrem complete <id>
+
+# Run self-diagnostics
+agentrem doctor
 ```
 
 ## CLI Commands
@@ -170,6 +181,10 @@ agentrem complete <id>
 | `export` | Export to JSON |
 | `import <file>` | Import from JSON |
 | `schema` | Show database schema |
+| `watch` | Background daemon: poll + fire OS notifications |
+| `doctor` | Self-diagnostic check |
+| `quickstart` | Interactive first-run walkthrough |
+| `setup` | Print CLAUDE.md snippet (`--mcp` for MCP config) |
 
 ## Trigger Types
 
@@ -192,8 +207,80 @@ agentrem complete <id>
 | 4 | ⚪ Low | Counted but not surfaced |
 | 5 | 💤 Someday | Skipped entirely |
 
+## Natural Language Dates
+
+`--due` (and `--until`, `--decay`) accept many formats:
+
+```bash
+--due "now"                  # Immediately
+--due "today"                # Today at 23:59
+--due "tomorrow"             # Tomorrow at 09:00
+--due "in 5 minutes"         # Relative natural language
+--due "in 2 hours"
+--due "in 3 days"
+--due "in 1 week"
+--due "+5m"                  # Short relative
+--due "+2h"
+--due "+3d"
+--due "+1w"
+--due "2026-02-22T09:00:00"  # ISO datetime
+--due "2026-02-22"           # ISO date
+```
+
+## Background Watcher
+
+`agentrem watch` polls for due reminders and fires native OS notifications. Perfect for always-on setups or running as a background service.
+
+```bash
+# Run in foreground
+agentrem watch                           # Poll every 30s
+agentrem watch --interval 60             # Custom interval
+agentrem watch --agent jarvis            # Watch for a specific agent
+agentrem watch --once                    # Single check, then exit
+agentrem watch --verbose                 # Show poll log
+
+# Service management (auto-start on boot)
+agentrem watch --install                 # Install as launchd/systemd service
+agentrem watch --install --interval 60   # Install with custom interval
+agentrem watch --uninstall               # Remove service
+agentrem watch --status                  # Check if installed and running
+```
+
+The watcher uses a 5-minute per-reminder cooldown to avoid notification spam. It checks all trigger types (`time`, `heartbeat`, `session`, `condition`) and runs escalation automatically.
+
+**Service files:**
+- macOS: `~/Library/LaunchAgents/com.agentrem.watch.plist`
+- Linux: `~/.config/systemd/user/agentrem-watch.service`
+- Logs: `~/.agentrem/logs/watch.log`
+
+## Native Notifications 🔔
+
+agentrem ships a custom Swift app (`Agentrem.app`) in `assets/`. On macOS, notifications show:
+
+- **App name:** "agentrem" with a 🔔 bell icon (not a terminal icon)
+- **Priority-based sounds:** P1=Hero, P2=Ping, P3=Pop
+- **Cheeky overdue messages:** e.g. "so... you forgot about this one 😅"
+
+**Notification backend priority:**
+
+| Backend | When used |
+|---------|-----------|
+| `Agentrem.app` | Preferred on macOS (bundled, no dependencies) |
+| `terminal-notifier` | Fallback if app is missing |
+| `osascript` | macOS AppleScript fallback |
+| `console` | Linux / last resort |
+
+To rebuild the Swift app from source:
+
+```bash
+npm run build:notify
+```
+
 ## Features
 
+- **Natural language dates** — `--due "tomorrow"`, `"in 5 minutes"`, `"+2h"`, ISO formats
+- **Background watcher** — `agentrem watch` daemon with OS service management
+- **Native notifications** — custom macOS app with bell icon, priority sounds, cheeky overdue messages
 - **Recurrence** — `--recur 1d/2w/1m` auto-creates next instance on completion
 - **Dependencies** — `--depends-on <id>` blocks until dependency is completed
 - **Decay** — `--decay <datetime>` auto-expires after a date
@@ -204,6 +291,8 @@ agentrem complete <id>
 - **Undo** — revert any change via audit history
 - **Multi-agent** — `--agent <name>` isolates reminders per agent
 - **Export/Import** — JSON backup with merge and replace modes
+- **Doctor** — `agentrem doctor` runs self-diagnostics
+- **Quickstart** — `agentrem quickstart` for interactive first-run setup
 
 ## MCP Server
 
@@ -230,7 +319,10 @@ git clone https://github.com/fraction12/agentrem.git
 cd agentrem
 npm install
 npm run build
-npm test          # 292 tests
+npm test          # 392 tests
+
+# Rebuild native notification app (Swift)
+npm run build:notify
 ```
 
 ## License
