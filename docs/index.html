@@ -23,7 +23,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body { font-family: -apple-system, 'Inter', BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.65; font-size: 15px; }
-    .container { max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 1.5rem; position: relative; z-index: 1; }
 
     /* ── NAV ── */
     nav { border-bottom: 1px solid var(--border); padding: 1rem 0; position: sticky; top: 0; background: rgba(10,10,10,0.9); backdrop-filter: blur(12px); z-index: 100; }
@@ -91,8 +91,8 @@
 
     /* ── FEATURE GRID ── */
     .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .feature-card { background: var(--bg2); padding: 1.5rem; transition: background 0.2s; }
-    .feature-card:hover { background: var(--bg3); }
+    .feature-card { background: var(--bg2); padding: 1.5rem; transition: background 0.2s, transform 0.3s ease, box-shadow 0.3s ease; position: relative; }
+    .feature-card:hover { background: var(--bg3); transform: translateY(-5px) scale(1.02); box-shadow: 0 10px 30px rgba(245,158,11,0.15), inset 0 0 0 1px rgba(245,158,11,0.3); z-index: 2; }
     .feature-icon { font-size: 1.8rem; line-height: 1; margin-bottom: 0.75rem; display: block; }
     .feature-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--fg); }
     .feature-desc { font-size: 0.83rem; color: var(--dim); line-height: 1.5; }
@@ -145,9 +145,57 @@
       .feature-grid { grid-template-columns: 1fr; }
       .hero h1 { font-size: 2.2rem; }
     }
+
+    /* ── ANIMATIONS ── */
+    .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    @keyframes ring {
+      0%   { transform: rotate(0); }
+      15%  { transform: rotate(15deg); }
+      30%  { transform: rotate(-10deg); }
+      45%  { transform: rotate(8deg); }
+      60%  { transform: rotate(-5deg); }
+      75%  { transform: rotate(2deg); }
+      100% { transform: rotate(0); }
+    }
+    .hero-icon { display: inline-block !important; animation: ring 2s ease forwards; transform-origin: top center; cursor: default; }
+    .hero-icon:hover { animation: ring 0.6s ease; }
+
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+    .typing-cursor { display: inline-block; animation: blink 0.7s step-end infinite; color: var(--accent); }
+
+    .bg-orbs { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.15; }
+    .orb-1 { width: 200px; height: 200px; background: #f59e0b; top: 10%; left: 20%; animation: float1 20s ease-in-out infinite; }
+    .orb-2 { width: 300px; height: 300px; background: #fb923c; top: 50%; right: 10%; animation: float2 25s ease-in-out infinite; }
+    .orb-3 { width: 250px; height: 250px; background: #fbbf24; bottom: 20%; left: 40%; animation: float3 30s ease-in-out infinite; }
+    @keyframes float1 { 0%,100% { transform:translate(0,0); } 25% { transform:translate(40px,-30px); } 50% { transform:translate(-20px,50px); } 75% { transform:translate(30px,20px); } }
+    @keyframes float2 { 0%,100% { transform:translate(0,0); } 33% { transform:translate(-50px,40px); } 66% { transform:translate(30px,-60px); } }
+    @keyframes float3 { 0%,100% { transform:translate(0,0); } 20% { transform:translate(60px,-40px); } 40% { transform:translate(-30px,30px); } 60% { transform:translate(40px,60px); } 80% { transform:translate(-60px,-20px); } }
+
+    .pills-marquee { overflow: hidden; margin-top: 1.5rem; }
+    .pills-marquee:hover .pills-track { animation-play-state: paused; }
+    .pills-track { display: flex; gap: 0.6rem; width: max-content; animation: marquee 20s linear infinite; }
+    @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+    footer { position: relative; z-index: 1; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .reveal.visible { opacity: 1 !important; transform: none !important; transition: none !important; }
+      .hero-icon, .orb, .pills-track, .typing-cursor { animation: none !important; }
+      .pills-track { transform: none; }
+    }
   </style>
 </head>
 <body>
+
+<!-- BG ORBS -->
+<div class="bg-orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -166,12 +214,12 @@
 <!-- HERO -->
 <div class="container">
   <section class="hero">
-    <span class="hero-icon">🔔</span>
+    <span class="hero-icon" id="hero-bell">🔔</span>
     <h1><span>agentrem</span></h1>
     <p class="hero-tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
     <div class="badges">
       <span class="badge"><span class="dot dot-amber"></span>v1.5.0</span>
-      <span class="badge"><span class="dot dot-green"></span>413 tests passing</span>
+      <span class="badge"><span class="dot dot-green"></span><span id="counter-413">413</span> tests passing</span>
       <span class="badge"><span class="dot dot-blue"></span>MIT License</span>
       <span class="badge"><span class="dot dot-purple"></span>MCP Compatible</span>
     </div>
@@ -354,15 +402,26 @@ You have access to `agentrem` for persistent reminders across sessions.
     <div class="section-label">Ecosystem</div>
     <h2 class="section-title"><span class="accent-marker">⟩</span>Works With</h2>
     <p class="section-sub">Drop agentrem into any AI coding workflow or MCP-compatible client.</p>
-    <div class="pills-row">
-      <span class="pill pill-coral">🤖 Claude Code</span>
-      <span class="pill pill-red">🦅 OpenClaw</span>
-      <span class="pill pill-blue">⚡ Cursor</span>
-      <span class="pill pill-green">🌊 Windsurf</span>
-      <span class="pill pill-coral">🖥 Claude Desktop</span>
-      <span class="pill pill-purple">🔌 Any MCP Client</span>
-      <span class="pill pill-white">🍎 macOS</span>
-      <span class="pill pill-yellow">🐧 Linux</span>
+    <div class="pills-marquee" aria-label="Compatible tools">
+      <div class="pills-track">
+        <span class="pill pill-coral">🤖 Claude Code</span>
+        <span class="pill pill-red">🦅 OpenClaw</span>
+        <span class="pill pill-blue">⚡ Cursor</span>
+        <span class="pill pill-green">🌊 Windsurf</span>
+        <span class="pill pill-coral">🖥 Claude Desktop</span>
+        <span class="pill pill-purple">🔌 Any MCP Client</span>
+        <span class="pill pill-white">🍎 macOS</span>
+        <span class="pill pill-yellow">🐧 Linux</span>
+        <!-- duplicate for seamless loop -->
+        <span class="pill pill-coral">🤖 Claude Code</span>
+        <span class="pill pill-red">🦅 OpenClaw</span>
+        <span class="pill pill-blue">⚡ Cursor</span>
+        <span class="pill pill-green">🌊 Windsurf</span>
+        <span class="pill pill-coral">🖥 Claude Desktop</span>
+        <span class="pill pill-purple">🔌 Any MCP Client</span>
+        <span class="pill pill-white">🍎 macOS</span>
+        <span class="pill pill-yellow">🐧 Linux</span>
+      </div>
     </div>
   </section>
 </div>
@@ -420,13 +479,36 @@ You have access to `agentrem` for persistent reminders across sessions.
 </footer>
 
 <script>
-  // Tab switcher
+  // Tab switcher with fade+slide transitions
   function switchTab(btn, targetId) {
     const wrapper = btn.closest('.code-wrapper');
-    wrapper.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
     wrapper.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById(targetId).style.display = 'block';
     btn.classList.add('active');
+    const current = Array.from(wrapper.querySelectorAll('[id^="tab-"]')).find(el => el.style.display !== 'none');
+    const next = document.getElementById(targetId);
+    if (current && current !== next) {
+      current.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+      current.style.opacity = '0';
+      current.style.transform = 'translateX(-10px)';
+      setTimeout(() => {
+        current.style.display = 'none';
+        current.style.opacity = '';
+        current.style.transform = '';
+        current.style.transition = '';
+        next.style.opacity = '0';
+        next.style.transform = 'translateX(10px)';
+        next.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+        next.style.display = 'block';
+        requestAnimationFrame(() => {
+          next.style.opacity = '1';
+          next.style.transform = 'translateX(0)';
+          setTimeout(() => { next.style.transition = ''; }, 150);
+        });
+      }, 150);
+    } else {
+      wrapper.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+      next.style.display = 'block';
+    }
   }
 
   // Copy code
@@ -457,6 +539,95 @@ You have access to `agentrem` for persistent reminders across sessions.
       setTimeout(() => btn.innerHTML = orig, 2000);
     });
   }
+</script>
+
+<script>
+(function() {
+  var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── SCROLL REVEAL ── */
+  var revealEls = document.querySelectorAll(
+    'h2.section-title, .feature-card, .code-wrapper, .agents-block, .dates-list, .doc-card, .pills-marquee, .section-label, .section-sub'
+  );
+  revealEls.forEach(function(el) { el.classList.add('reveal'); });
+  // Stagger feature cards
+  document.querySelectorAll('.feature-card').forEach(function(card, i) {
+    card.style.transitionDelay = (i * 0.1) + 's';
+  });
+  if (!prefersReduced && 'IntersectionObserver' in window) {
+    var revealObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          revealObs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08 });
+    revealEls.forEach(function(el) { revealObs.observe(el); });
+  } else {
+    revealEls.forEach(function(el) { el.classList.add('visible'); });
+  }
+
+  /* ── COUNTER ANIMATION ── */
+  var counterEl = document.getElementById('counter-413');
+  if (counterEl) {
+    function animateCounter(el, target, duration) {
+      if (el._counted) return;
+      el._counted = true;
+      var start = performance.now();
+      function update(now) {
+        var p = Math.min((now - start) / duration, 1);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(eased * target);
+        if (p < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+    if (!prefersReduced && 'IntersectionObserver' in window) {
+      var cntObs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) { animateCounter(counterEl, 413, 1500); cntObs.unobserve(entry.target); }
+        });
+      }, { threshold: 0.5 });
+      cntObs.observe(counterEl.closest('.badge') || counterEl);
+    } else {
+      animateCounter(counterEl, 413, 1500);
+    }
+  }
+
+  /* ── TYPING EFFECT (npx tab, once only) ── */
+  var npxTab = document.getElementById('tab-npx');
+  var codeEl = npxTab ? npxTab.querySelector('pre code') : null;
+  if (codeEl && !prefersReduced) {
+    var originalHTML = codeEl.innerHTML;
+    var plainText = codeEl.innerText || codeEl.textContent;
+    codeEl.innerHTML = '';
+    var cursor = document.createElement('span');
+    cursor.className = 'typing-cursor';
+    cursor.textContent = '|';
+    codeEl.appendChild(cursor);
+    var idx = 0;
+    function typeChar() {
+      if (idx < plainText.length) {
+        var txt = document.createTextNode(plainText[idx]);
+        codeEl.insertBefore(txt, cursor);
+        idx++;
+        setTimeout(typeChar, 30);
+      } else {
+        var blinks = 0;
+        var blinkTimer = setInterval(function() {
+          blinks++;
+          if (blinks >= 6) {
+            clearInterval(blinkTimer);
+            cursor.remove();
+            codeEl.innerHTML = originalHTML;
+          }
+        }, 350);
+      }
+    }
+    setTimeout(typeChar, 400);
+  }
+})();
 </script>
 </body>
 </html>
