@@ -218,7 +218,7 @@
     <h1><span>agentrem</span></h1>
     <p class="hero-tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
     <div class="badges">
-      <span class="badge"><span class="dot dot-amber"></span><span id="version-badge">v1.8.0</span></span>
+      <span class="badge"><span class="dot dot-amber"></span><span id="version-badge">v…</span></span>
       <span class="badge"><span class="dot dot-green"></span><span id="test-counter">465+</span> tests passing</span>
       <span class="badge"><span class="dot dot-blue"></span>MIT License</span>
       <span class="badge"><span class="dot dot-purple"></span>MCP Compatible</span>
@@ -554,6 +554,15 @@ You have access to `agentrem` for persistent reminders across sessions.
 <script>
 (function() {
   var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── FETCH VERSION FROM NPM ── */
+  fetch('https://registry.npmjs.org/agentrem/latest')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var el = document.getElementById('version-badge');
+      if (el && d.version) el.textContent = 'v' + d.version;
+    })
+    .catch(function() {});
 
   /* ── SCROLL REVEAL ── */
   var revealEls = document.querySelectorAll(
