@@ -86,7 +86,7 @@ Does NOT update fire counts. Use `agentrem check` (without --watch) to actually 
 
 ## watch flags
 `--interval <seconds>` `--agent/-a <name>` `--once` `--verbose`
-`--on-fire <command>` `--on-fire-timeout <ms>`
+`--on-fire <command>` `--on-fire-preset <name>` `--on-fire-timeout <ms>`
 `--install` `--uninstall` `--status`
 
 ## Trigger Types

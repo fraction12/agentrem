@@ -32,6 +32,8 @@ export interface WatchOptions {
   onNotify?: (rem: Reminder) => void;
   /** Shell command to execute when a reminder fires. Reminder data passed via env vars. */
   onFire?: string;
+  /** Built-in on-fire preset name (e.g. 'openclaw'). Mutually exclusive with onFire. */
+  onFirePreset?: string;
   /** Timeout for on-fire command in milliseconds (default 5000) */
   onFireTimeout?: number;
   /** How often to run garbage collection in ms (default 24h) */
@@ -63,6 +65,22 @@ export function markNotified(state: WatchState, reminderId: string, now: number 
 export function fireNotification(rem: Reminder): void {
   const opts = buildNotifyOpts(rem);
   sendNotification(opts);
+}
+
+/**
+ * Resolve a built-in on-fire preset name to its shell command string.
+ * Throws if the preset is unknown.
+ */
+export function resolveOnFirePreset(preset: string): string {
+  if (preset === 'openclaw') {
+    return (
+      'openclaw cron add --name "agentrem-fire"' +
+      ' --at "$(date -u -v+10S +%Y-%m-%dT%H:%M:%SZ)"' +
+      ' --message "🔔 Reminder: $AGENTREM_CONTENT (P$AGENTREM_PRIORITY)"' +
+      ' --delete-after-run --announce --best-effort-deliver'
+    );
+  }
+  throw new Error(`Unknown --on-fire-preset: "${preset}". Supported presets: openclaw`);
 }
 
 const ON_FIRE_LOG_DIR = join(homedir(), '.agentrem', 'logs');
@@ -109,6 +127,10 @@ export function runCheckCycle(
   opts: WatchOptions,
   now: number = Date.now(),
 ): Reminder[] {
+  // Resolve preset to concrete command (do this once per cycle, outside the loop)
+  const resolvedOnFire: string | undefined =
+    opts.onFirePreset !== undefined ? resolveOnFirePreset(opts.onFirePreset) : opts.onFire;
+
   const db = getDb(opts.dbPath);
   let notified: Reminder[] = [];
   try {
@@ -144,8 +166,8 @@ export function runCheckCycle(
       if (shouldNotify(state, rem.id, now, cooldownMs)) {
         notify(rem);
         // Execute on-fire hook sequentially after notification
-        if (opts.onFire) {
-          const ok = executeOnFire(opts.onFire, rem, opts.onFireTimeout ?? 5000);
+        if (resolvedOnFire) {
+          const ok = executeOnFire(resolvedOnFire, rem, opts.onFireTimeout ?? 5000);
           if (opts.verbose) {
             console.log(`[agentrem watch] 🔥 [${rem.id.slice(0, 8)}] on-fire ${ok ? 'ok' : 'failed'}`);
           }

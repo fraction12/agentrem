@@ -536,6 +536,7 @@ Background daemon that polls for due reminders and fires native OS notifications
 | `--uninstall` | Remove the background service |
 | `--status` | Show service status |
 | `--on-fire <command>` | Execute shell command when a reminder fires (env vars: AGENTREM_ID, AGENTREM_CONTENT, AGENTREM_PRIORITY, AGENTREM_TAGS, AGENTREM_CONTEXT, AGENTREM_DUE, AGENTREM_FIRE_COUNT) |
+| `--on-fire-preset <name>` | Use a built-in on-fire command (`openclaw`). Cannot combine with `--on-fire`. |
 | `--on-fire-timeout <ms>` | Timeout for on-fire command (default: 5000) |
 | `--cooldown <seconds>` | Dedup cooldown between re-notifications for same reminder (default: 300) |
 
@@ -589,15 +590,23 @@ agentrem watch --status                  # Show installed/running status
 Execute a shell command whenever a reminder fires. Reminder data is passed via environment variables (never interpolated into the command string — safe from shell injection).
 
 ```bash
-# Forward to OpenClaw for instant Telegram delivery
-agentrem watch --on-fire 'openclaw system event --text "🔔 Reminder: $AGENTREM_CONTENT (P$AGENTREM_PRIORITY)" --mode now'
+# Use a built-in preset (easiest)
+agentrem watch --on-fire-preset openclaw
 
-# Webhook
+# Or craft your own command
 agentrem watch --on-fire 'curl -X POST -d "{\"text\":\"$AGENTREM_CONTENT\"}" https://hooks.example.com/reminder'
 
 # Custom timeout (default 5s)
 agentrem watch --on-fire 'my-slow-script.sh' --on-fire-timeout 15000
 ```
+
+#### on-fire presets
+
+| Preset | What it does |
+|--------|-------------|
+| `openclaw` | Creates a one-shot OpenClaw cron job that delivers the reminder to your active channel (Telegram, Discord, etc.) |
+
+Presets generate the full shell command internally — no configuration needed. Use `--on-fire` for custom integrations.
 
 - **Fire-and-forget:** errors logged to `~/.agentrem/logs/on-fire.log`, never crash the watcher
 - **Sequential:** multiple reminders process one at a time

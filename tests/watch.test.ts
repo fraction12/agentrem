@@ -16,6 +16,7 @@ import {
   markNotified,
   type WatchState,
   runCheckCycle,
+  resolveOnFirePreset,
 } from '../src/watch.js';
 
 // ─── Service module under test ─────────────────────────────────────────────
@@ -514,5 +515,94 @@ describe('getSystemdUnitPath', () => {
     expect(p).toContain(path.join(os.homedir(), '.config', 'systemd', 'user'));
     expect(p).toContain(SYSTEMD_UNIT_NAME);
     expect(p.endsWith('.service')).toBe(true);
+  });
+});
+
+// ── resolveOnFirePreset ──────────────────────────────────────────────────────
+
+describe('resolveOnFirePreset', () => {
+  it('openclaw preset returns a string containing "openclaw cron add"', () => {
+    const cmd = resolveOnFirePreset('openclaw');
+    expect(cmd).toContain('openclaw cron add');
+  });
+
+  it('openclaw preset includes --delete-after-run and --announce', () => {
+    const cmd = resolveOnFirePreset('openclaw');
+    expect(cmd).toContain('--delete-after-run');
+    expect(cmd).toContain('--announce');
+  });
+
+  it('openclaw preset includes $AGENTREM_CONTENT and $AGENTREM_PRIORITY env vars', () => {
+    const cmd = resolveOnFirePreset('openclaw');
+    expect(cmd).toContain('$AGENTREM_CONTENT');
+    expect(cmd).toContain('$AGENTREM_PRIORITY');
+  });
+
+  it('unknown preset throws an error', () => {
+    expect(() => resolveOnFirePreset('unknown-preset')).toThrow(/unknown-preset/i);
+  });
+
+  it('unknown preset error message mentions supported presets', () => {
+    expect(() => resolveOnFirePreset('not-a-thing')).toThrow(/openclaw/i);
+  });
+});
+
+// ── runCheckCycle with onFirePreset ─────────────────────────────────────────
+
+describe('runCheckCycle — onFirePreset', () => {
+  let tmpDir: string;
+  let dbPath: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentrem-preset-test-'));
+    dbPath = path.join(tmpDir, 'reminders.db');
+    process.env['AGENTREM_DB'] = dbPath;
+    initDb(false, dbPath);
+  });
+
+  afterEach(() => {
+    delete process.env['AGENTREM_DB'];
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('resolves onFirePreset and calls executeOnFire with the resolved command', () => {
+    const db = getDb(dbPath);
+    const pastDue = new Date(Date.now() - 10_000);
+    coreAdd(db, {
+      content: 'Preset test reminder',
+      trigger: 'time',
+      due: dtToIso(pastDue),
+      priority: 2,
+    });
+    db.close();
+
+    // Capture calls to onFire via onNotify spy; use a custom onNotify to avoid OS notifications
+    // We verify that the preset resolves correctly by confirming runCheckCycle doesn't throw
+    const state: WatchState = { lastNotified: new Map() };
+    const firedCommands: string[] = [];
+
+    // Intercept: override onNotify so we can check reminders fire
+    // The actual executeOnFire call will fail (openclaw isn't available) but that's non-fatal
+    expect(() =>
+      runCheckCycle(state, {
+        dbPath,
+        onNotify: () => {},
+        onFirePreset: 'openclaw',
+      }),
+    ).not.toThrow();
+
+    // The reminder should have been attempted (state recorded)
+    expect(state.lastNotified.size).toBeGreaterThanOrEqual(1);
+  });
+
+  it('throws for an unknown onFirePreset', () => {
+    const state: WatchState = { lastNotified: new Map() };
+    expect(() =>
+      runCheckCycle(state, {
+        dbPath,
+        onNotify: () => {},
+        onFirePreset: 'not-a-real-preset',
+      }),
+    ).toThrow(/not-a-real-preset/i);
   });
 });

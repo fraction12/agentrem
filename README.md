@@ -96,7 +96,7 @@ Run `agentrem setup --mcp` to print this config. MCP tools: `add_reminder` · `c
 | `gc` | `--older-than` `--dry-run` | `agentrem gc --older-than 30` |
 | `export` | `--out` `--status` | `agentrem export --out backup.json` |
 | `import <file>` | `--merge` `--replace` `--dry-run` | `agentrem import backup.json --merge` |
-| `watch` | `--interval` `--once` `--verbose` `--on-fire` `--on-fire-timeout` `--install` `--uninstall` `--status` `--agent` | `agentrem watch --on-fire "curl ..."` |
+| `watch` | `--interval` `--once` `--verbose` `--on-fire` `--on-fire-preset` `--on-fire-timeout` `--install` `--uninstall` `--status` `--agent` | `agentrem watch --on-fire-preset openclaw` |
 | `setup` | `--mcp` | `agentrem setup` / `agentrem setup --mcp` |
 | `doctor` | `--json` | `agentrem doctor` |
 | `init` | `--force` | `agentrem init` |
@@ -205,9 +205,14 @@ Reminder data is passed as environment variables (no shell injection — data ne
 - **Sequential** — multiple reminders process one at a time
 - **Timeout:** 5 seconds default, configurable with `--on-fire-timeout <ms>`
 
-**Example: Forward to OpenClaw (instant Telegram delivery):**
+**Built-in presets** — skip the shell command entirely:
 ```bash
-agentrem watch --on-fire 'openclaw system event --text "🔔 Reminder: $AGENTREM_CONTENT (P$AGENTREM_PRIORITY)" --mode now'
+agentrem watch --on-fire-preset openclaw   # auto-delivers to your OpenClaw agent
+```
+
+Or craft your own:
+```bash
+agentrem watch --on-fire 'curl -X POST https://hooks.example.com/reminder -d "text=$AGENTREM_CONTENT"'
 ```
 
 ---

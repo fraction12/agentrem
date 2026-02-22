@@ -8,7 +8,7 @@ import * as path from 'node:path';
 import { VERSION, PRIORITY_LABELS, AgentremError } from './types.js';
 import { initDb, getDb } from './db.js';
 import { fmtDt, truncate, dtToIso } from './date-parser.js';
-import { startWatch } from './watch.js';
+import { startWatch, resolveOnFirePreset } from './watch.js';
 import { checkWatch, fmtWatchReminder } from './check-watch.js';
 import { installService, uninstallService, getServiceStatus } from './service.js';
 import {
@@ -750,7 +750,26 @@ program
   .command('setup')
   .description('Print integration snippets for AI tools')
   .option('--mcp', 'Print Claude Desktop MCP config instead')
+  .option('--openclaw', 'Print OpenClaw integration instructions')
   .action((opts) => {
+    if (opts.openclaw) {
+      const plistPath = path.join(os.homedir(), 'Library', 'LaunchAgents', 'com.agentrem.watch.plist');
+      const plistExists = fs.existsSync(plistPath);
+      console.log('## agentrem × OpenClaw Integration\n');
+      console.log('Run this command to start watching for reminders and delivering them via OpenClaw:\n');
+      console.log('  agentrem watch --on-fire-preset openclaw\n');
+      console.log('When a reminder fires, agentrem will schedule a one-shot OpenClaw cron that');
+      console.log('delivers the reminder to your last active channel — no extra config needed.\n');
+      if (plistExists) {
+        console.log(`⚠️  You have a launchd plist installed at:\n  ${plistPath}`);
+        console.log('Update it to include --on-fire-preset openclaw, then reload:\n');
+        console.log('  launchctl unload ' + plistPath);
+        console.log('  # edit the plist to add --on-fire-preset openclaw to the ProgramArguments array');
+        console.log('  launchctl load ' + plistPath);
+      }
+      return;
+    }
+
     if (opts.mcp) {
       const config = {
         mcpServers: {
@@ -955,6 +974,7 @@ program
   .option('--once', 'Run a single check and exit')
   .option('--verbose', 'Verbose output')
   .option('--on-fire <command>', 'Shell command to run when a reminder fires (data via env vars)')
+  .option('--on-fire-preset <name>', 'Use a built-in on-fire command preset (e.g. openclaw)')
   .option('--on-fire-timeout <ms>', 'Timeout for on-fire command in ms (default 5000)', parseInt)
   .option('--cooldown <seconds>', 'Dedup cooldown in seconds (default 300)', parseInt)
   .option('--install', 'Install as a background OS service (launchd / systemd)')
@@ -1001,13 +1021,30 @@ program
     }
 
     // ── watch loop ────────────────────────────────────────────────────────
+    // Validate mutual exclusivity of --on-fire and --on-fire-preset
+    if (opts.onFire && opts.onFirePreset) {
+      console.error('Error: Cannot use both --on-fire and --on-fire-preset');
+      process.exit(1);
+    }
+
+    // Resolve preset to concrete command string upfront (validates preset name early)
+    let resolvedOnFire: string | undefined = opts.onFire;
+    if (opts.onFirePreset) {
+      try {
+        resolvedOnFire = resolveOnFirePreset(opts.onFirePreset);
+      } catch (e: any) {
+        console.error(`Error: ${e.message}`);
+        process.exit(1);
+      }
+    }
+
     try {
       await startWatch({
         interval: opts.interval,
         agent: opts.agent || opts.A,
         once: opts.once,
         verbose: opts.verbose,
-        onFire: opts.onFire,
+        onFire: resolvedOnFire,
         onFireTimeout: opts.onFireTimeout,
         cooldown: opts.cooldown,
       });
