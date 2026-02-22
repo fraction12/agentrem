@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { detectNotifier } from './notifier.js';
 
 export const LAUNCH_AGENT_LABEL = 'com.agentrem.watch';
 export const SYSTEMD_UNIT_NAME = 'agentrem-watch.service';
@@ -193,6 +194,13 @@ export function installService(opts: ServiceOptions = {}): ServiceResult {
         message: `Wrote plist but launchctl load failed: ${e.message}`,
         path: plistPath,
       };
+    }
+
+    // Warn if terminal-notifier is not available for rich notifications
+    if (detectNotifier() !== 'terminal-notifier') {
+      console.warn(
+        '⚠️  terminal-notifier not found. Install it for rich notifications: brew install terminal-notifier',
+      );
     }
 
     return {

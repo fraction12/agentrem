@@ -14,8 +14,6 @@ import {
   DEDUP_COOLDOWN_MS,
   shouldNotify,
   markNotified,
-  buildNotificationTitle,
-  buildNotificationMessage,
   type WatchState,
   runCheckCycle,
 } from '../src/watch.js';
@@ -148,75 +146,6 @@ describe('markNotified', () => {
 describe('DEDUP_COOLDOWN_MS', () => {
   it('is exactly 5 minutes in milliseconds', () => {
     expect(DEDUP_COOLDOWN_MS).toBe(5 * 60 * 1000);
-  });
-});
-
-// ── Notification formatting ──────────────────────────────────────────────────
-
-describe('buildNotificationTitle', () => {
-  it('includes 🔴 for priority 1', () => {
-    const rem = makeReminder({ priority: 1 });
-    expect(buildNotificationTitle(rem)).toBe('🔴 agentrem');
-  });
-
-  it('includes 🟡 for priority 2', () => {
-    const rem = makeReminder({ priority: 2 });
-    expect(buildNotificationTitle(rem)).toBe('🟡 agentrem');
-  });
-
-  it('includes 🔵 for priority 3 (normal)', () => {
-    const rem = makeReminder({ priority: 3 });
-    expect(buildNotificationTitle(rem)).toBe('🔵 agentrem');
-  });
-
-  it('includes ⚪ for priority 4 (low)', () => {
-    const rem = makeReminder({ priority: 4 });
-    expect(buildNotificationTitle(rem)).toBe('⚪ agentrem');
-  });
-
-  it('includes 💤 for priority 5 (someday)', () => {
-    const rem = makeReminder({ priority: 5 });
-    expect(buildNotificationTitle(rem)).toBe('💤 agentrem');
-  });
-
-  it('falls back to 🔵 for unexpected priority', () => {
-    const rem = makeReminder({ priority: 99 });
-    expect(buildNotificationTitle(rem)).toBe('🔵 agentrem');
-  });
-});
-
-describe('buildNotificationMessage', () => {
-  it('returns content when no context/tags', () => {
-    const rem = makeReminder({ content: 'Buy milk', context: null, tags: null });
-    expect(buildNotificationMessage(rem)).toBe('Buy milk');
-  });
-
-  it('appends context when present', () => {
-    const rem = makeReminder({ content: 'Buy milk', context: 'grocery run', tags: null });
-    const msg = buildNotificationMessage(rem);
-    expect(msg).toContain('Buy milk');
-    expect(msg).toContain('Context: grocery run');
-  });
-
-  it('appends tags when present', () => {
-    const rem = makeReminder({ content: 'Buy milk', context: null, tags: 'shopping,food' });
-    const msg = buildNotificationMessage(rem);
-    expect(msg).toContain('Buy milk');
-    expect(msg).toContain('Tags: shopping,food');
-  });
-
-  it('includes both context and tags when both are set', () => {
-    const rem = makeReminder({ content: 'Buy milk', context: 'store run', tags: 'shopping' });
-    const msg = buildNotificationMessage(rem);
-    expect(msg).toContain('Context: store run');
-    expect(msg).toContain('Tags: shopping');
-  });
-
-  it('truncates very long content to ~80 chars', () => {
-    const longContent = 'A'.repeat(200);
-    const rem = makeReminder({ content: longContent });
-    const msg = buildNotificationMessage(rem);
-    expect(msg.split('\n')[0].length).toBeLessThanOrEqual(85); // truncate(80) + some margin
   });
 });
 

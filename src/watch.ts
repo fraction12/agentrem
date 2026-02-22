@@ -5,7 +5,7 @@
 import { getDb } from './db.js';
 import { coreCheck } from './core.js';
 import { truncate } from './date-parser.js';
-import { sendNotification } from './notify.js';
+import { buildNotifyOpts, sendNotification } from './notifier.js';
 import type { Reminder } from './types.js';
 
 export const DEDUP_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -45,25 +45,10 @@ export function markNotified(state: WatchState, reminderId: string, now: number 
   state.lastNotified.set(reminderId, now);
 }
 
-/** Build the notification title for a reminder. */
-export function buildNotificationTitle(rem: Reminder): string {
-  const priorityIcons: Record<number, string> = { 1: '🔴', 2: '🟡', 3: '🔵', 4: '⚪', 5: '💤' };
-  const icon = priorityIcons[rem.priority] ?? '🔵';
-  return `${icon} agentrem`;
-}
-
-/** Build the notification message body for a reminder. */
-export function buildNotificationMessage(rem: Reminder): string {
-  const content = truncate(rem.content, 80);
-  const parts: string[] = [content];
-  if (rem.context) parts.push(`Context: ${truncate(rem.context, 40)}`);
-  if (rem.tags) parts.push(`Tags: ${rem.tags}`);
-  return parts.join('\n');
-}
-
 /** Send a native OS notification for a single reminder. */
 export function fireNotification(rem: Reminder): void {
-  sendNotification(rem);
+  const opts = buildNotifyOpts(rem);
+  sendNotification(opts);
 }
 
 /** Run a single check cycle: poll DB, notify due reminders, return notified list. */
