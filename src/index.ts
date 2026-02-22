@@ -60,7 +60,7 @@ program
   .option('--tags <tags>', 'Comma-separated tags')
   .option('--context, -c <ctx>', 'Context string')
   .option('--category <cat>', 'Category')
-  .option('--keywords, -k <kw>', 'Keywords for keyword trigger')
+  .option('--keywords, --keyword, -k <kw>', 'Keywords for keyword trigger')
   .option('--match <mode>', 'Keyword match mode: any|all|regex')
   .option('--check <cmd>', 'Shell command for condition trigger')
   .option('--expect <output>', 'Expected output for condition trigger')
@@ -279,7 +279,7 @@ program
 program
   .command('list')
   .description('List reminders')
-  .option('--status, -s <statuses>', 'Comma-separated statuses')
+  .option('--status, -s <statuses>', 'Filter by status (active,completed,expired,snoozed,deleted or "all")')
   .option('--priority <priorities>', 'Comma-separated priorities')
   .option('--tag <tag>', 'Filter by tag')
   .option('--trigger <type>', 'Filter by trigger type')
@@ -617,6 +617,17 @@ program
           console.log(
             `${String(r.id).padStart(4)}  ${r.reminder_id.slice(0, 8).padStart(8)}  ${r.action.padStart(10)}  ${fmtDt(r.timestamp).padEnd(15)}  ${r.source || ''}`,
           );
+          // Show completion notes if present
+          if (r.new_data) {
+            try {
+              const nd = JSON.parse(r.new_data) as Record<string, unknown>;
+              if (nd['notes'] && typeof nd['notes'] === 'string') {
+                console.log(`      Notes: ${truncate(nd['notes'], 80)}`);
+              }
+            } catch {
+              // Ignore unparseable new_data
+            }
+          }
         }
       }
     } finally {
@@ -975,13 +986,13 @@ program
 
     if (opts.status) {
       const s = getServiceStatus();
-      const installedIcon = s.installed ? '✅' : '❌';
-      const runningIcon = s.running ? '🟢' : '🔴';
-      console.log(`${installedIcon} Installed: ${s.installed}`);
-      console.log(`${runningIcon} Running:   ${s.running}`);
-      console.log(`   Platform: ${s.platform}`);
-      if (s.filePath) console.log(`   File:     ${s.filePath}`);
-      console.log(`   Detail:   ${s.detail}`);
+      console.log(`Installed: ${s.installed ? 'yes' : 'no'}`);
+      console.log(`Running:   ${s.running ? 'yes' : 'no'}`);
+      console.log(`PID:       ${s.pid != null ? String(s.pid) : 'n/a'}`);
+      if (s.logPath) console.log(`Log:       ${s.logPath}`);
+      console.log(`Platform:  ${s.platform}`);
+      if (s.filePath) console.log(`File:      ${s.filePath}`);
+      if (s.detail) console.log(`Status:    ${s.detail}`);
       return;
     }
 

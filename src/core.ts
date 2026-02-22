@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import {
   SCHEMA_VERSION,
+  VERSION,
   PRIORITY_LABELS,
   VALID_TRIGGERS,
   AgentremError,
@@ -1121,6 +1122,7 @@ export function coreUndo(db: Database.Database, historyId: number): void {
 
 export interface ExportData {
   exported_at: string;
+  version: string;
   schema_version: number;
   reminder_count: number;
   reminders: Record<string, unknown>[];
@@ -1152,6 +1154,7 @@ export function coreExport(db: Database.Database, status?: string): ExportData {
 
   return {
     exported_at: dtToIso(new Date()),
+    version: VERSION,
     schema_version: SCHEMA_VERSION,
     reminder_count: reminders.length,
     reminders,

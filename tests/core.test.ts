@@ -1289,6 +1289,13 @@ describe('coreExport', () => {
     expect(data.exported_at).toBeTruthy();
   });
 
+  it('includes version from package.json (fix #2)', () => {
+    const data = coreExport(db);
+    expect(data.version).toBeTruthy();
+    expect(typeof data.version).toBe('string');
+    expect(data.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
   it('exports all reminders', () => {
     coreAdd(db, { content: 'Export 1', due: '+1h' });
     coreAdd(db, { content: 'Export 2', due: '+2h' });

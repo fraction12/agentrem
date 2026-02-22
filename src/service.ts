@@ -310,6 +310,8 @@ export interface ServiceStatus {
   platform: Platform;
   filePath: string;
   detail: string;
+  pid: number | null;
+  logPath: string | null;
 }
 
 /**
@@ -318,11 +320,14 @@ export interface ServiceStatus {
 export function getServiceStatus(): ServiceStatus {
   const platform = getPlatform();
 
+  const defaultLogPath = path.join(os.homedir(), '.agentrem', 'logs', 'watch.log');
+
   if (platform === 'darwin') {
     const plistPath = getLaunchAgentPath();
     const installed = fs.existsSync(plistPath);
     let running = false;
-    let detail = installed ? `Plist at ${plistPath}` : `Not installed (expected: ${plistPath})`;
+    let detail = installed ? 'Loaded' : 'Not installed';
+    let pid: number | null = null;
 
     if (installed) {
       try {
@@ -330,21 +335,25 @@ export function getServiceStatus(): ServiceStatus {
           encoding: 'utf8',
           stdio: 'pipe',
         });
-        running = !out.includes('"PID" = 0') && out.trim().length > 0;
-        detail = `launchctl: ${out.trim().slice(0, 120)}`;
+        // Parse PID from launchctl property-list output: "PID" = 1234;
+        const pidMatch = out.match(/"PID"\s*=\s*(\d+)/);
+        pid = pidMatch ? parseInt(pidMatch[1], 10) : null;
+        running = pid !== null && pid > 0;
+        detail = running ? `Running (PID: ${pid})` : 'Loaded, not running';
       } catch {
         detail = 'Plist present but not loaded by launchctl';
       }
     }
 
-    return { installed, running, platform, filePath: plistPath, detail };
+    return { installed, running, platform, filePath: plistPath, detail, pid, logPath: defaultLogPath };
   }
 
   if (platform === 'linux') {
     const unitPath = getSystemdUnitPath();
     const installed = fs.existsSync(unitPath);
     let running = false;
-    let detail = installed ? `Unit at ${unitPath}` : `Not installed (expected: ${unitPath})`;
+    let detail = installed ? 'Loaded' : 'Not installed';
+    let pid: number | null = null;
 
     if (installed) {
       try {
@@ -358,7 +367,7 @@ export function getServiceStatus(): ServiceStatus {
       }
     }
 
-    return { installed, running, platform, filePath: unitPath, detail };
+    return { installed, running, platform, filePath: unitPath, detail, pid, logPath: defaultLogPath };
   }
 
   return {
@@ -367,6 +376,8 @@ export function getServiceStatus(): ServiceStatus {
     platform,
     filePath: '',
     detail: `Unsupported platform: ${os.platform()}`,
+    pid: null,
+    logPath: null,
   };
 }
 

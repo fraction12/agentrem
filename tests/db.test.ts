@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import Database from 'better-sqlite3';
 import { initDb, getDb, findReminder, recordHistory, getHistoryEntries } from '../src/db.js';
+import { VERSION } from '../src/types.js';
 
 let tmpDir: string;
 let dbPath: string;
@@ -124,8 +125,25 @@ describe('initDb', () => {
 // ── getDb ─────────────────────────────────────────────────────────────────────
 
 describe('getDb', () => {
-  it('throws if DB does not exist', () => {
-    expect(() => getDb(dbPath)).toThrow(/Database not found/);
+  it('auto-initializes DB if it does not exist (fix #4)', () => {
+    // Before: getDb() would throw; now it auto-inits
+    expect(fs.existsSync(dbPath)).toBe(false);
+    const db = getDb(dbPath);
+    expect(db).toBeInstanceOf(Database);
+    db.close();
+    // DB file should now exist
+    expect(fs.existsSync(dbPath)).toBe(true);
+  });
+
+  it('auto-init creates a valid schema', () => {
+    const db = getDb(dbPath);
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all() as { name: string }[];
+    db.close();
+    const names = tables.map((t) => t.name);
+    expect(names).toContain('reminders');
+    expect(names).toContain('history');
   });
 
   it('returns a working Database instance after init', () => {
@@ -144,6 +162,20 @@ describe('getDb', () => {
     const row = db.pragma('journal_mode') as { journal_mode: string }[];
     expect(row[0].journal_mode).toBe('wal');
     db.close();
+  });
+});
+
+// ── VERSION reads from package.json (fix #1) ──────────────────────────────────
+
+describe('VERSION', () => {
+  it('matches the version in package.json', () => {
+    const pkgPath = new URL('../package.json', import.meta.url);
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { version: string };
+    expect(VERSION).toBe(pkg.version);
+  });
+
+  it('is a semver string', () => {
+    expect(VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
 

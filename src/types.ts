@@ -1,7 +1,14 @@
 // ── Types ──────────────────────────────────────────────────────────────────
 
+import { readFileSync } from 'node:fs';
+
 export const SCHEMA_VERSION = 1;
-export const VERSION = '1.6.0';
+
+// Read version from package.json at runtime so it never goes stale
+const _pkg = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+) as { version: string };
+export const VERSION: string = _pkg.version;
 
 export const PRIORITY_LABELS: Record<number, string> = {
   1: '🔴 Critical',

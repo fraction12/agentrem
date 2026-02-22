@@ -19,7 +19,8 @@ function getDefaultDbPath(): string {
 export function getDb(dbPath?: string): Database.Database {
   const p = dbPath || getDefaultDbPath();
   if (!fs.existsSync(p)) {
-    throw new Error(`Database not found at ${p}. Run \`agentrem init\` first.`);
+    // Auto-initialize on first use so `agentrem check` works without `agentrem init`
+    initDb(false, p);
   }
   const db = new Database(p);
   db.pragma('journal_mode = WAL');
