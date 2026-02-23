@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>agentrem — Structured Reminders for AI Agents</title>
-  <meta name="description" content="Persistent, searchable reminders that work across AI agent sessions. CLI + MCP server. SQLite-backed, zero config.">
+  <meta name="description" content="Your AI agent forgets everything between sessions. agentrem fixes that. Persistent, structured reminders that survive context resets. CLI + MCP server. Zero config.">
   <style>
     :root {
       --bg: #0a0a0a;
@@ -216,7 +216,7 @@
   <section class="hero">
     <span class="hero-icon" id="hero-bell">🔔</span>
     <h1><span>agentrem</span></h1>
-    <p class="hero-tagline">Structured reminders for AI agents. Persistent, searchable, works across sessions.</p>
+    <p class="hero-tagline">Your agent starts from zero every session. Give it a memory that actually persists.</p>
     <div class="badges">
       <span class="badge"><span class="dot dot-amber"></span><span id="version-badge">v…</span></span>
       <span class="badge"><span class="dot dot-green"></span><span id="test-counter">450+</span> tests passing</span>
@@ -238,7 +238,7 @@
   <section id="quickstart">
     <div class="section-label">Get started</div>
     <h2 class="section-title"><span class="accent-marker">⟩</span>Quick Start</h2>
-    <p class="section-sub">Choose your preferred installation method.</p>
+    <p class="section-sub">Zero config. Works in 30 seconds. No re-explaining required.</p>
 
     <div class="code-wrapper">
       <div class="tabs">
@@ -334,38 +334,38 @@ const s = await stats();</code></pre>
   <section id="features">
     <div class="section-label">What you get</div>
     <h2 class="section-title"><span class="accent-marker">⟩</span>Features</h2>
-    <p class="section-sub">Everything you need to give your AI agent a reliable memory for tasks.</p>
+    <p class="section-sub">Session ends, context gone? Not anymore.</p>
 
     <div class="feature-grid">
       <div class="feature-card">
         <span class="feature-icon">🧠</span>
-        <div class="feature-title">Persistent</div>
-        <div class="feature-desc">SQLite-backed. Survives restarts, context resets, session boundaries.</div>
+        <div class="feature-title">Survives Everything</div>
+        <div class="feature-desc">SQLite on disk. Restarts, context resets, session boundaries — your agent never starts from zero again.</div>
       </div>
       <div class="feature-card">
         <span class="feature-icon">🔍</span>
-        <div class="feature-title">Searchable</div>
-        <div class="feature-desc">Full-text search with FTS5. Find any reminder instantly.</div>
+        <div class="feature-title">Actually Searchable</div>
+        <div class="feature-desc">Full-text search across every reminder you've ever created. No more "what was that thing I told you last week?"</div>
       </div>
       <div class="feature-card">
         <span class="feature-icon">📋</span>
-        <div class="feature-title">Structured Output</div>
-        <div class="feature-desc"><code>--json</code> on every command. Built for agents, not humans.</div>
+        <div class="feature-title">Agent-Native</div>
+        <div class="feature-desc"><code>--json</code> on every command. Built for agents to read and write — not another human UI with an API bolted on.</div>
       </div>
       <div class="feature-card">
         <span class="feature-icon">🔔</span>
-        <div class="feature-title">Native Notifications</div>
-        <div class="feature-desc">macOS bell icon, priority sounds, "Complete ✅" action button.</div>
+        <div class="feature-title">Actually Notifies You</div>
+        <div class="feature-desc">Native macOS notifications with a "Complete ✅" button. Your agent doesn't silently drop the ball anymore.</div>
       </div>
       <div class="feature-card">
         <span class="feature-icon">⏰</span>
-        <div class="feature-title">Watch &amp; Block</div>
-        <div class="feature-desc">Daemon mode with <code>--install</code>. Or use <code>check --watch</code> to block until next reminder fires.</div>
+        <div class="feature-title">Always Running</div>
+        <div class="feature-desc">Background daemon with <code>--install</code>. Fires reminders even when your agent is sleeping. No cron hacks needed.</div>
       </div>
       <div class="feature-card">
         <span class="feature-icon">🔌</span>
-        <div class="feature-title">MCP Server</div>
-        <div class="feature-desc">Works with Claude Desktop, Cursor, Windsurf. Any MCP client.</div>
+        <div class="feature-title">Works Everywhere</div>
+        <div class="feature-desc">MCP server for Claude Desktop, Cursor, Windsurf — or just use the CLI. Drop it into any workflow in seconds.</div>
       </div>
     </div>
   </section>
@@ -376,7 +376,7 @@ const s = await stats();</code></pre>
   <section id="agents">
     <div class="section-label">AI integration</div>
     <h2 class="section-title"><span class="accent-marker">⟩</span>Built for Agents</h2>
-    <p class="section-sub">Add this to your agent's system prompt or instructions file:</p>
+    <p class="section-sub">Stop re-explaining context every session. Add this to your agent's instructions and it just works:</p>
 
     <div class="agents-block">
       <div class="agents-header">
@@ -409,7 +409,7 @@ You have access to `agentrem` for persistent reminders across sessions.
   <section id="integrations">
     <div class="section-label">Ecosystem</div>
     <h2 class="section-title"><span class="accent-marker">⟩</span>Works With</h2>
-    <p class="section-sub">Drop agentrem into any AI coding workflow or MCP-compatible client.</p>
+    <p class="section-sub">Wherever your agent runs, agentrem runs. No vendor lock-in. No proprietary memory APIs.</p>
     <div class="pills-marquee" aria-label="Compatible tools">
       <div class="pills-track">
         <span class="pill pill-coral">🤖 Claude Code</span>
@@ -439,7 +439,7 @@ You have access to `agentrem` for persistent reminders across sessions.
   <section id="dates">
     <div class="section-label">Smart parsing</div>
     <h2 class="section-title"><span class="accent-marker">⟩</span>Natural Language Dates</h2>
-    <p class="section-sub">Use plain English for scheduling — agentrem understands it all.</p>
+    <p class="section-sub">Just say when. No date format gymnastics.</p>
     <div class="dates-list">
       <span class="date-chip">now</span>
       <span class="date-chip">today</span>
@@ -460,7 +460,7 @@ You have access to `agentrem` for persistent reminders across sessions.
   <section id="docs">
     <div class="section-label">Documentation</div>
     <h2 class="section-title"><span class="accent-marker">⟩</span>Agent Documentation</h2>
-    <p class="section-sub">Plain-text references optimised for LLM consumption.</p>
+    <p class="section-sub">Paste these into your agent's context. It'll figure out the rest.</p>
     <div class="doc-grid">
       <a class="doc-card" href="./llms.txt" target="_blank">
         <span class="doc-icon">📄</span>
@@ -483,7 +483,7 @@ You have access to `agentrem` for persistent reminders across sessions.
 <!-- FOOTER -->
 <footer>
   <div class="container">
-    <p>MIT License · Built for the agent economy · <a href="https://github.com/fraction12/agentrem" target="_blank">GitHub ↗</a></p>
+    <p>MIT License · Your agent deserves a memory · <a href="https://github.com/fraction12/agentrem" target="_blank">GitHub ↗</a></p>
     <p style="margin-top:0.35rem;font-size:0.78rem;">Made with ☕ by <a href="https://openclaw.ai" target="_blank">OpenClaw</a></p>
   </div>
 </footer>
